@@ -164,7 +164,7 @@ form.input button { border: 0; background: var(--accent); color: var(--on-accent
 <div class="wrap">
   <header class="top">
     <div class="eyebrow">Demo para negocios con cita <span class="stack"><span>n8n</span><span>Claude</span><span>Google Calendar</span></span></div>
-    <h1>Una recepcionista que reserva sola, a cualquier hora</h1>
+    <h1>Recepcionista con IA para negocios con cita</h1>
     <p class="lede">Escribe como si fueras un cliente de <b>Barbería El Faro</b> (negocio de ejemplo). El asistente entiende lo que pides, <b>mira los huecos libres en Google Calendar</b>, te propone horas y deja la cita apuntada. En el panel de n8n ves cada paso que da, y en la agenda, cómo se llena.</p>
     <p class="lede"><a href="https://kiladior14.github.io/demo-recepcionista/barberia/" style="color:var(--accent);font-weight:600">Ver la web como la ve el cliente →</a></p>
   </header>
@@ -235,9 +235,9 @@ form.input button { border: 0; background: var(--accent); color: var(--on-accent
   </div>
 
   <section class="explain" aria-label="Por qué le interesa al negocio">
-    <article><span class="num">24/7</span><h3>Contesta cuando el barbero no puede</h3><p>Con las manos en una cabeza nadie coge el móvil. El asistente responde al momento, también a las 23:00, y cierra la cita sin que nadie toque nada.</p></article>
-    <article><span class="num">1 agenda</span><h3>Sin dobles reservas</h3><p>Todo acaba en el mismo Google Calendar que ya usa el negocio. Si el equipo bloquea una hora, deja de ofrecerse en el chat.</p></article>
-    <article><span class="num">0 €</span><h3>Convive con Booksy</h3><p>No hay que quitar nada. Booksy sigue trayendo clientes nuevos; los de siempre reservan por aquí sin pagar comisión.</p></article>
+    <article><span class="num">24/7</span><h3>Atención fuera de horario</h3><p>El asistente responde al instante a cualquier hora y registra la cita sin intervención del personal.</p></article>
+    <article><span class="num">1 agenda</span><h3>Sin dobles reservas</h3><p>Todas las citas se guardan en el Google Calendar del negocio. Si el equipo bloquea una hora, deja de ofrecerse en el chat.</p></article>
+    <article><span class="num">0 €</span><h3>Compatible con Booksy</h3><p>No sustituye ninguna herramienta actual. Booksy sigue captando clientes nuevos y los habituales reservan por este canal sin comisión.</p></article>
   </section>
 
   <p class="foot"><b>Cómo está hecho.</b> En esta página el chat funciona dentro del navegador para que cualquiera pueda probarlo desde el enlace. La versión real es un flujo de n8n con un agente de Claude que lee y escribe en el Google Calendar del negocio, y se conecta igual a la web o a WhatsApp. Precios, horario y citas de esta demo son de ejemplo.</p>
@@ -497,7 +497,7 @@ function reset() {
   st = { paso: null, d: {}, nombre: null, tel: null }; ultima = null; offer = null; flashId = null; week = 0; seq = 0;
   seed(); renderCal();
   $('log').innerHTML = ''; $('flowlog').innerHTML = ''; NODES.forEach(function (n) { nodeState(n, null); }); $('exec').textContent = 'esperando un mensaje…';
-  push('¡Hola! Soy el asistente de <b>Barbería El Faro</b> 💈\nTe busco hueco y te dejo la cita apuntada. ¿Qué te quieres hacer?', 'bot');
+  push('Hola, soy el asistente de reservas de <b>Barbería El Faro</b>.\n¿Qué servicio te gustaría reservar?', 'bot');
   chips(START_CHIPS);
 }
 
@@ -520,11 +520,11 @@ async function think(text, tools) {
   // pasos que esperan un dato concreto
   if (st.paso === 'confirmar') {
     if (/\b(si|vale|ok|okey|confirmo|confirmar|perfecto|dale|de acuerdo|genial|claro|venga)\b/.test(n)) return reservar(tools);
-    if (/\b(no|cambiar|otra)\b/.test(n)) { d.hora = null; d.ok = false; st.paso = null; return preguntarHora(tools, 'Sin problema. ¿A qué hora te vendría mejor?'); }
+    if (/\b(no|cambiar|otra)\b/.test(n)) { d.hora = null; d.ok = false; st.paso = null; return preguntarHora(tools, 'De acuerdo. ¿Qué hora prefieres?'); }
   }
   if (st.paso === 'cancelar') {
     if (/\b(si|vale|ok|confirmo|dale|claro|venga)\b/.test(n)) return cancelar(tools);
-    st.paso = null; return { txt: 'Perfecto, la dejo como está. Te esperamos 👍', chips: START_CHIPS };
+    st.paso = null; return { txt: 'De acuerdo, la cita se mantiene.', chips: START_CHIPS };
   }
   if (st.paso === 'nombre' && !esPregunta(n) && !p.serv && !p.day) {
     st.nombre = p.nombre || cap(text.replace(/^(soy|me llamo)\s+/i, '').split(/\s+/).slice(0, 2).join(' ').toLowerCase()).replace(/\s(\S)/, function (x) { return x.toUpperCase(); });
@@ -532,7 +532,7 @@ async function think(text, tools) {
   }
   if (st.paso === 'tel' && !esPregunta(n)) {
     if (p.tel) { st.tel = p.tel; st.paso = null; return siguiente(tools); }
-    return { txt: 'Ese número no me cuadra 🤔 Pásame un móvil de 9 cifras, por ejemplo 612 345 678.', chips: [] };
+    return { txt: 'El número no parece válido. Indica un móvil de 9 cifras, por ejemplo 612 345 678.', chips: [] };
   }
 
   if (/otro dia|otra fecha|cambiar de dia/.test(n) && st.d.serv) { st.d.day = null; st.d.hora = null; st.d.ok = false; offer = null; renderCal(); return siguiente(tools); }
@@ -540,23 +540,23 @@ async function think(text, tools) {
   // preguntas sueltas
   if (has(n, /cancel|anular|no (puedo|podre) ir/)) return pedirCancelar();
   if (has(n, /precio|cuanto (vale|cuesta|es|sale)|tarifa|que vale/)) {
-    var r = p.serv ? 'Un <b>' + p.serv.n.toLowerCase() + '</b> son <b>' + eur(p.serv.p) + '</b> (' + p.serv.m + ' min).' :
-      'Te paso los precios:\n' + SERV.map(function (s) { return '· ' + s.n + ' — ' + eur(s.p); }).join('\n');
+    var r = p.serv ? 'El servicio <b>' + p.serv.n.toLowerCase() + '</b> cuesta <b>' + eur(p.serv.p) + '</b> (' + p.serv.m + ' min).' :
+      'Estos son nuestros precios:\n' + SERV.map(function (s) { return '· ' + s.n + ' — ' + eur(s.p); }).join('\n');
     if (p.serv && !st.paso) d.serv = p.serv;
-    return { txt: r + (p.serv ? '\n¿Te busco hueco?' : '\n¿Qué te apetece?'), chips: p.serv ? [{ l: 'Sí, ¿qué día hay?', v: 'quiero cita' }, { l: 'De momento no' }] : SERV.slice(0, 4).map(function (s) { return { l: s.n, v: 'quiero ' + s.n.toLowerCase() }; }) };
+    return { txt: r + (p.serv ? '\n¿Quieres reservar cita?' : '\n¿Qué servicio te interesa?'), chips: p.serv ? [{ l: 'Sí, reservar', v: 'quiero cita' }, { l: 'No, gracias', v: 'no' }] : SERV.slice(0, 4).map(function (s) { return { l: s.n, v: 'quiero ' + s.n.toLowerCase() }; }) };
   }
-  if (has(n, /horario|a que hora (abr|cerr)|abris|cerrais|abierto|abren|cierran/)) return { txt: 'Abrimos de <b>martes a viernes</b> de 9:30 a 13:30 y de 16:00 a 20:00, y los <b>sábados</b> de 9:00 a 14:00. Domingo y lunes, cerrado.', chips: [{ l: 'Pedir cita', v: 'quiero cita' }] };
-  if (has(n, /donde|direccion|como llego|aparca|ubicacion/)) return { txt: 'Estamos en <b>C/ Major 10, Castelló</b> (dirección de ejemplo). Hay zona azul en la calle y un parking a 3 minutos.', chips: [{ l: 'Pedir cita', v: 'quiero cita' }] };
-  if (has(n, /bizum|tarjeta|pagar|efectivo/)) return reanudar('Sí: tarjeta, Bizum o efectivo, como prefieras.', tools);
-  if (has(n, /extension|keratina|alisado|depila|manicura|unas/)) return reanudar('Eso no lo hacemos, lo siento. Para cualquier cosa fuera de la carta, mejor llama al local.', tools);
-  if (has(n, /\b(gracias|grax|genial|perfecto)\b/) && !st.paso && !p.serv && !p.day && p.hora == null) return { txt: '¡A ti! Cualquier cosa me escribes por aquí 🙌', chips: [] };
-  if (has(n, /^\s*(no|de momento no|nada)\s*$/)) { st.paso = null; return { txt: 'Vale, sin prisa. Aquí estoy cuando quieras 👋', chips: START_CHIPS }; }
+  if (has(n, /horario|a que hora (abr|cerr)|abris|cerrais|abierto|abren|cierran/)) return { txt: 'Nuestro horario es de <b>martes a viernes</b>, de 9:30 a 13:30 y de 16:00 a 20:00, y los <b>sábados</b>, de 9:00 a 14:00. Domingos y lunes, cerrado.', chips: [{ l: 'Pedir cita', v: 'quiero cita' }] };
+  if (has(n, /donde|direccion|como llego|aparca|ubicacion/)) return { txt: 'Estamos en <b>C/ Major 10, Castelló</b> (dirección de ejemplo). Hay zona azul en la misma calle y un aparcamiento público a 3 minutos.', chips: [{ l: 'Pedir cita', v: 'quiero cita' }] };
+  if (has(n, /bizum|tarjeta|pagar|efectivo/)) return reanudar('Aceptamos tarjeta, Bizum y efectivo.', tools);
+  if (has(n, /extension|keratina|alisado|depila|manicura|unas/)) return reanudar('Ese servicio no lo ofrecemos. Para consultas sobre servicios que no aparecen en la carta, puedes llamar al local.', tools);
+  if (has(n, /\b(gracias|grax|genial|perfecto)\b/) && !st.paso && !p.serv && !p.day && p.hora == null) return { txt: 'Gracias a ti. Quedamos a tu disposición.', chips: [] };
+  if (has(n, /^\s*(no|de momento no|nada)\s*$/)) { st.paso = null; return { txt: 'De acuerdo. Puedes escribirnos cuando lo necesites.', chips: START_CHIPS }; }
 
   // reserva: rellenar lo que haya dicho
   var quiere = p.serv || p.day || p.hora != null || has(n, /cita|reserv|hueco|turno|pedir|quiero|tienes|teneis|libre|puedo ir|me pasas/);
   if (!quiere && !st.paso) {
-    if (has(n, /^\s*(hola|buenas|hey|ey|buenos dias|buenas tardes)\b/)) return { txt: '¡Buenas! ¿Te busco cita o tienes alguna duda?', chips: START_CHIPS };
-    return { txt: 'Perdona, no te he pillado 😅 Te puedo dar cita, decirte precios y horario, o cancelar una reserva.', chips: START_CHIPS };
+    if (has(n, /^\s*(hola|buenas|hey|ey|buenos dias|buenas tardes)\b/)) return { txt: 'Hola. ¿Quieres reservar una cita o tienes alguna consulta?', chips: START_CHIPS };
+    return { txt: 'No he entendido tu mensaje. Puedo ayudarte a reservar o cancelar una cita, o informarte de precios y horario.', chips: START_CHIPS };
   }
   if (p.serv) d.serv = p.serv;
   if (p.day) { d.day = p.day; d.hora = null; d.ok = false; }
@@ -573,22 +573,22 @@ function reanudar(txt, tools) {
 
 function siguiente(tools) {
   var d = st.d;
-  if (!d.serv) { st.paso = 'serv'; return { txt: '¿Qué te quieres hacer?', chips: SERV.slice(0, 5).map(function (s) { return { l: s.n + ' · ' + eur(s.p), v: 'quiero ' + s.n.toLowerCase() }; }) }; }
+  if (!d.serv) { st.paso = 'serv'; return { txt: '¿Qué servicio te gustaría reservar?', chips: SERV.slice(0, 5).map(function (s) { return { l: s.n + ' · ' + eur(s.p), v: 'quiero ' + s.n.toLowerCase() }; }) }; }
   if (!d.day) {
     st.paso = 'day'; var ch = [], x = TODAY;
     for (var i = 0; i < 14 && ch.length < 4; i++) { x = addDays(TODAY, i); if (isOpen(x) && freeSlots(x, d.serv.m).length) ch.push({ l: cap(i === 0 ? 'hoy' : i === 1 ? 'mañana' : diaTxt(x)), v: 'el ' + x.getDate() + '/' + (x.getMonth() + 1) }); }
-    return { txt: 'Un <b>' + d.serv.n.toLowerCase() + '</b> (' + eur(d.serv.p) + ', ' + d.serv.m + ' min). ¿Qué día te viene bien?', chips: ch };
+    return { txt: 'Servicio: <b>' + d.serv.n.toLowerCase() + '</b> (' + eur(d.serv.p) + ', ' + d.serv.m + ' min). ¿Qué día prefieres?', chips: ch };
   }
-  if (d.day < TODAY) { d.day = null; return { txt: 'Esa fecha ya ha pasado 😅 ¿Qué día te va bien?', chips: [] }; }
-  if (d.day >= addDays(WEEK0, WEEKS * 7)) { d.day = null; return { txt: 'De momento la agenda está abierta hasta ' + diaLargo(addDays(WEEK0, WEEKS * 7 - 2)) + '. ¿Te va bien algún día antes?', chips: [] }; }
+  if (d.day < TODAY) { d.day = null; return { txt: 'Esa fecha ya ha pasado. ¿Qué día prefieres?', chips: [] }; }
+  if (d.day >= addDays(WEEK0, WEEKS * 7)) { d.day = null; return { txt: 'La agenda está abierta hasta el ' + diaLargo(addDays(WEEK0, WEEKS * 7 - 2)) + '. ¿Te viene bien algún día anterior?', chips: [] }; }
   if (!isOpen(d.day)) {
     var alt = nextOpen(d.day, d.serv.m), dia = DIAS[d.day.getDay()]; dia = /s$/.test(dia) ? dia : dia + 's';
-    if (!alt) { d.day = null; return { txt: 'Los ' + dia + ' cerramos y no me quedan huecos en las próximas semanas. Mejor llama al local.', chips: [] }; }
+    if (!alt) { d.day = null; return { txt: 'Los ' + dia + ' el local está cerrado y no queda disponibilidad en las próximas semanas. Te recomendamos llamar al local.', chips: [] }; }
     d.day = alt;
     tools.push(toolVer(alt, d.serv.m));
     var sl = pickSpread(freeSlots(alt, d.serv.m), d.pod); offer = { day: alt, slots: sl, m: d.serv.m };
     st.paso = 'hora';
-    return { txt: 'Los ' + dia + ' cerramos. El <b>' + diaTxt(alt) + '</b> tengo libre a las ' + lista(sl) + '. ¿Te cuadra alguna?', chips: horaChips(sl) };
+    return { txt: 'Los ' + dia + ' el local está cerrado. El <b>' + diaTxt(alt) + '</b> hay disponibilidad a las ' + lista(sl) + '. ¿Cuál prefieres?', chips: horaChips(sl) };
   }
   if (d.hora == null) return preguntarHora(tools);
   if (!d.ok) {
@@ -599,24 +599,24 @@ function siguiente(tools) {
       var cerca = nearest(libres, d.hora), pedida = hhmm(d.hora); d.hora = null;
       if (!cerca.length) return diaLleno(tools);
       offer = { day: d.day, slots: cerca, m: d.serv.m }; st.paso = 'hora';
-      return { txt: 'A las ' + pedida + ' el ' + diaTxt(d.day) + ' no puedo, ' + (dentroHorario(d.day, toMin(pedida)) ? 'ya está cogido' : 'estamos cerrados') + '. Lo más cerca que tengo: ' + lista(cerca) + '.', chips: horaChips(cerca) };
+      return { txt: 'El ' + diaTxt(d.day) + ' a las ' + pedida + ' no hay disponibilidad (' + (dentroHorario(d.day, toMin(pedida)) ? 'ya está reservado' : 'fuera del horario de apertura') + '). Las horas más cercanas son: ' + lista(cerca) + '.', chips: horaChips(cerca) };
     }
     d.ok = true; offer = { day: d.day, slots: [d.hora], m: d.serv.m };
   }
-  if (!st.nombre) { st.paso = 'nombre'; return { txt: '¡Hecho, el ' + diaTxt(d.day) + ' a las <b>' + hhmm(d.hora) + '</b> está libre! ¿A nombre de quién la apunto?', chips: [] }; }
-  if (!st.tel) { st.paso = 'tel'; return { txt: 'Gracias, ' + esc(st.nombre) + '. ¿Me dejas un móvil? Es para mandarte el recordatorio el día antes.', chips: [] }; }
+  if (!st.nombre) { st.paso = 'nombre'; return { txt: 'El ' + diaTxt(d.day) + ' a las <b>' + hhmm(d.hora) + '</b> está disponible. ¿A nombre de quién hago la reserva?', chips: [] }; }
+  if (!st.tel) { st.paso = 'tel'; return { txt: 'Gracias, ' + esc(st.nombre) + '. ¿Me indicas un número de móvil? Lo usaremos para enviarte un recordatorio el día anterior.', chips: [] }; }
   st.paso = 'confirmar';
-  return { txt: 'Te apunto:\n<b>' + d.serv.n + '</b> · ' + cap(diaLargo(d.day)) + ' a las <b>' + hhmm(d.hora) + '</b>\n' + eur(d.serv.p) + ' · a nombre de ' + esc(st.nombre) + ' (' + st.tel.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3') + ')\n¿La confirmo?', chips: [{ l: 'Sí, confírmala', v: 'si' }, { l: 'Cambiar la hora', v: 'no' }] };
+  return { txt: 'Resumen de la cita:\n<b>' + d.serv.n + '</b> · ' + cap(diaLargo(d.day)) + ' a las <b>' + hhmm(d.hora) + '</b>\n' + eur(d.serv.p) + ' · a nombre de ' + esc(st.nombre) + ' (' + st.tel.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3') + ')\n¿Confirmo la reserva?', chips: [{ l: 'Sí, confírmala', v: 'si' }, { l: 'Cambiar la hora', v: 'no' }] };
 }
 function dentroHorario(day, m) { return (HORARIO[day.getDay()] || []).some(function (t) { return m >= t[0] && m < t[1]; }); }
 function lista(sl) { var h = sl.map(hhmm); return h.length > 1 ? h.slice(0, -1).join(', ') + ' o ' + h[h.length - 1] : h[0]; }
 function horaChips(sl) { return sl.map(function (s) { return { l: hhmm(s), v: hhmm(s) }; }).concat([{ l: 'Otro día', v: 'otro dia' }]); }
 function diaLleno(tools) {
   var d = st.d, alt = nextOpen(addDays(d.day, 1), d.serv.m), dia = diaTxt(d.day);
-  if (!alt) { d.day = null; st.paso = null; return { txt: 'El ' + dia + ' está completo y no me quedan huecos más adelante. Mejor llama al local.', chips: [] }; }
+  if (!alt) { d.day = null; st.paso = null; return { txt: 'El ' + dia + ' no queda disponibilidad y tampoco en las próximas semanas. Te recomendamos llamar al local.', chips: [] }; }
   d.day = alt; tools.push(toolVer(alt, d.serv.m));
   var sl = pickSpread(freeSlots(alt, d.serv.m), d.pod); offer = { day: alt, slots: sl, m: d.serv.m }; st.paso = 'hora';
-  return { txt: 'Para ' + (d.serv.id === 'combo' ? 'corte + barba' : 'un ' + d.serv.n.toLowerCase()) + ' (' + d.serv.m + ' min) el ' + dia + ' lo tengo completo. El <b>' + diaTxt(alt) + '</b> me quedan: ' + lista(sl) + '.', chips: horaChips(sl) };
+  return { txt: 'Para ' + (d.serv.id === 'combo' ? 'corte + barba' : 'un ' + d.serv.n.toLowerCase()) + ' (' + d.serv.m + ' min) el ' + dia + ' no queda disponibilidad. El <b>' + diaTxt(alt) + '</b> hay huecos a las ' + lista(sl) + '.', chips: horaChips(sl) };
 }
 function preguntarHora(tools, intro) {
   var d = st.d, libres = freeSlots(d.day, d.serv.m);
@@ -624,31 +624,31 @@ function preguntarHora(tools, intro) {
   if (!libres.length) return diaLleno(tools);
   var sl = pickSpread(libres, d.pod); offer = { day: d.day, slots: sl, m: d.serv.m }; st.paso = 'hora';
   var franja = d.pod === 'tarde' ? ' por la tarde' : d.pod === 'manana' ? ' por la mañana' : '';
-  return { txt: (intro ? intro + '\n' : '') + 'El <b>' + diaTxt(d.day) + '</b>' + franja + ' tengo libre a las ' + lista(sl) + (sl.length > 1 ? '. ¿Cuál te va mejor?' : '. ¿Te va bien?'), chips: horaChips(sl) };
+  return { txt: (intro ? intro + '\n' : '') + 'El <b>' + diaTxt(d.day) + '</b>' + franja + ' hay disponibilidad a las ' + lista(sl) + (sl.length > 1 ? '. ¿Cuál prefieres?' : '. ¿Te viene bien?'), chips: horaChips(sl) };
 }
 function reservar(tools) {
   var d = st.d, ev = { id: 'r' + Date.now().toString(36), day: d.day, s: d.hora, e: d.hora + d.serv.m, title: d.serv.n + ' — ' + st.nombre, kind: 'ia', src: 'IA' };
   // por si mientras tanto alguien ha cogido la hora
   var libre = freeSlots(d.day, d.serv.m).indexOf(d.hora) !== -1;
   tools.push(toolVer(d.day, d.serv.m));
-  if (!libre) { d.hora = null; d.ok = false; st.paso = null; return preguntarHora(tools, 'Vaya, esa hora se acaba de ocupar.'); }
+  if (!libre) { d.hora = null; d.ok = false; st.paso = null; return preguntarHora(tools, 'Esa hora acaba de reservarse.'); }
   tools.push({ id: 'crear', k: 'Google Calendar · Crear cita', v: '«' + ev.title + '» ' + diaTxt(d.day) + ' ' + hhmm(ev.s) + '–' + hhmm(ev.e), ms: 650, after: function () { events.push(ev); var a = stored(); a.push({ id: ev.id, day: iso(ev.day), s: ev.s, e: ev.e, title: ev.title }); store(a); flashId = ev.id; offer = null; showDay(ev.day); } });
   ultima = ev; var resumen = d.serv.n + ' el ' + diaLargo(d.day) + ' a las ' + hhmm(d.hora);
   st.d = {}; st.paso = null;
-  return { txt: '✅ ¡Listo, ' + esc(st.nombre) + '! Tienes <b>' + resumen + '</b>.\nEl día antes te mando un recordatorio. Si no puedes venir, escríbeme por aquí y la cancelo.\n<span class="ok">● Guardada en Google Calendar</span>', chips: [{ l: 'Quiero cancelarla', v: 'cancelar mi cita' }, { l: 'Gracias!' }] };
+  return { txt: 'Cita confirmada, ' + esc(st.nombre) + ': <b>' + resumen + '</b>.\nTe enviaremos un recordatorio el día anterior. Si necesitas cancelarla, puedes hacerlo desde este chat.\n<span class="ok">● Guardada en Google Calendar</span>', chips: [{ l: 'Cancelar la cita', v: 'cancelar mi cita' }, { l: 'Gracias' }] };
 }
 function pedirCancelar() {
   if (!ultima || events.indexOf(ultima) === -1) { var ias = events.filter(function (e) { return e.kind === 'ia' && e.day >= TODAY; }); ultima = ias[ias.length - 1] || null; }
-  if (!ultima || events.indexOf(ultima) === -1) { st.paso = null; return { txt: 'No veo ninguna cita tuya reservada desde este chat. Si la pediste por teléfono o por Booksy, cancélala por ahí o llama al local.', chips: START_CHIPS }; }
+  if (!ultima || events.indexOf(ultima) === -1) { st.paso = null; return { txt: 'No consta ninguna cita reservada desde este chat. Si la reservaste por teléfono o por Booksy, puedes cancelarla por ese medio o llamando al local.', chips: START_CHIPS }; }
   st.paso = 'cancelar';
-  return { txt: '¿Cancelo tu cita de <b>' + ultima.title.split(' — ')[0].toLowerCase() + '</b> del ' + diaLargo(ultima.day) + ' a las ' + hhmm(ultima.s) + '?', chips: [{ l: 'Sí, cancélala', v: 'si' }, { l: 'No, la mantengo', v: 'no' }] };
+  return { txt: '¿Quieres cancelar tu cita de <b>' + ultima.title.split(' — ')[0].toLowerCase() + '</b> del ' + diaLargo(ultima.day) + ' a las ' + hhmm(ultima.s) + '?', chips: [{ l: 'Sí, cancélala', v: 'si' }, { l: 'No, la mantengo', v: 'no' }] };
 }
 function cancelar(tools) {
   var ev = ultima; st.paso = null;
   tools.push({ id: 'ver', k: 'Google Calendar · Ver agenda', v: 'busca «' + ev.title + '»', ms: 480, after: function () { showDay(ev.day); } });
   tools.push({ id: 'cancel', k: 'Google Calendar · Cancelar cita', v: 'borra el evento ' + ev.id + ' · ' + diaTxt(ev.day) + ' ' + hhmm(ev.s), ms: 520, after: function () { events.splice(events.indexOf(ev), 1); store(stored().filter(function (r) { return r.id !== ev.id; })); renderCal(); } });
   ultima = null;
-  return { txt: 'Hecho, cita cancelada. El hueco ya vuelve a estar libre para otro cliente. ¿Te busco otro día?', chips: [{ l: 'Sí, otro día', v: 'quiero cita' }, { l: 'No, gracias', v: 'no' }] };
+  return { txt: 'La cita ha sido cancelada. ¿Quieres reservar otro día?', chips: [{ l: 'Sí, otro día', v: 'quiero cita' }, { l: 'No, gracias', v: 'no' }] };
 }
 
 /* ================= arranque ================= */
