@@ -276,7 +276,7 @@ function diaTxt(d) { return DIAS[d.getDay()] + ' ' + d.getDate(); }
 function diaLargo(d) { return DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()]; }
 function cap(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-function norm(t) { return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[¿?¡!,;]/g, ' ').replace(/\s+/g, ' ').trim(); }
+function norm(t) { return t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[¿?¡!,;]/g, ' ').replace(/\s+/g, ' ').trim(); }
 function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 function clock() { var d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
 function nowMin() { var d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
