@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recepcionista IA · Barbería El Faro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: chat del cliente a la izquierda; a la derecha, lo que pasa por dentro (n8n) encima de la agenda (Google Calendar). En móvil, apilado. */
+:root {
+  --bg: #eef1ef;
+  --surface: #ffffff;
+  --surface-2: #f6f8f7;
+  --ink: #15211d;
+  --muted: #5b6a64;
+  --line: #d7dfdb;
+  --accent: #0e6b5a;          /* citas que mete la IA */
+  --accent-soft: #d5ece6;
+  --amber: #a8640f;           /* citas de otros canales */
+  --amber-soft: #f6e6cf;
+  --staff: #56606b;           /* bloqueos del equipo */
+  --staff-soft: #e3e7eb;
+  --n8n: #e0466b;             /* nodo en ejecución */
+  --n8n-soft: #fbe1e7;
+  --closed: #e7ebe9;
+  --bubble-me: #d9f2e4;
+  --chat-bg: #f2efe9;
+  --danger: #c0392b;
+  --on-accent: #ffffff;
+  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1513; --surface: #17201d; --surface-2: #1c2723; --ink: #e6eeea; --muted: #94a59e; --line: #2b3833;
+    --accent: #4fc3a7; --accent-soft: #173a32; --amber: #e3a650; --amber-soft: #3a2c17; --staff: #a9b4bf; --staff-soft: #283038;
+    --n8n: #ff6f90; --n8n-soft: #3d1c25; --closed: #141c19; --bubble-me: #1f4636; --chat-bg: #121a17; --danger: #ff7b6b; --on-accent: #0b1210;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1513; --surface: #17201d; --surface-2: #1c2723; --ink: #e6eeea; --muted: #94a59e; --line: #2b3833;
+  --accent: #4fc3a7; --accent-soft: #173a32; --amber: #e3a650; --amber-soft: #3a2c17; --staff: #a9b4bf; --staff-soft: #283038;
+  --n8n: #ff6f90; --n8n-soft: #3d1c25; --closed: #141c19; --bubble-me: #1f4636; --chat-bg: #121a17; --danger: #ff7b6b; --on-accent: #0b1210;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 28px 16px 56px; display: grid; gap: 22px; }
+
+/* ---------- cabecera ---------- */
+header.top { display: grid; gap: 10px; }
+.eyebrow { font: 600 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.stack { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.stack span { border: 1px solid var(--line); border-radius: 999px; padding: 4px 9px; background: var(--surface); letter-spacing: .02em; text-transform: none; font-weight: 500; }
+h1 { font: 800 clamp(30px, 5vw, 50px)/1.02 var(--f-display); font-stretch: 78%; letter-spacing: -.01em; margin: 0; text-wrap: balance; }
+.lede { margin: 0; max-width: 66ch; color: var(--muted); font-size: 16px; }
+.lede b { color: var(--ink); font-weight: 600; }
+
+/* ---------- rejilla principal ---------- */
+.main { display: grid; gap: 22px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1000px) { .main { grid-template-columns: 390px minmax(0, 1fr); align-items: start; } .chat { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); } }
+.right { display: grid; gap: 22px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; min-width: 0; }
+.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.panel-h h2 { font: 700 15px/1.2 var(--f-display); font-stretch: 90%; margin: 0; letter-spacing: .01em; display: flex; align-items: center; gap: 8px; }
+.panel-h small { color: var(--muted); font: 12px/1.3 var(--f-mono); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
+
+/* ---------- chat ---------- */
+.chat { display: flex; flex-direction: column; height: min(720px, 86vh); overflow: hidden; }
+.chat-head { display: flex; gap: 12px; align-items: center; padding: 12px 14px; background: var(--accent); color: var(--on-accent); }
+.avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--on-accent) 18%, transparent); font: 800 15px/1 var(--f-display); flex: none; }
+.chat-head b { display: block; font: 700 15px/1.2 var(--f-display); font-stretch: 90%; }
+.chat-head span { font-size: 12px; opacity: .85; }
+.chat-head button { margin-left: auto; }
+.btn-ghost { background: transparent; border: 1px solid currentColor; color: inherit; border-radius: 8px; padding: 5px 10px; font: 500 12px/1 var(--f-body); cursor: pointer; opacity: .9; }
+.btn-ghost:hover { opacity: 1; }
+.log { flex: 1; overflow-y: auto; padding: 16px 12px; display: flex; flex-direction: column; gap: 8px; background: var(--chat-bg); }
+.msg { max-width: 86%; padding: 8px 11px 6px; border-radius: 12px; font-size: 14.5px; line-height: 1.45; white-space: pre-line; word-wrap: break-word; box-shadow: 0 1px 0 rgba(0,0,0,.06); }
+.msg.bot { background: var(--surface); align-self: flex-start; border-top-left-radius: 4px; }
+.msg.me { background: var(--bubble-me); align-self: flex-end; border-top-right-radius: 4px; }
+.msg .t { display: block; text-align: right; font: 10.5px/1 var(--f-mono); color: var(--muted); margin-top: 4px; }
+.msg b { font-weight: 600; }
+.msg .ok { display: inline-block; margin-top: 4px; font: 500 12px/1.3 var(--f-mono); color: var(--accent); }
+.typing { align-self: flex-start; background: var(--surface); border-radius: 12px; padding: 10px 12px; display: flex; gap: 4px; }
+.typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: bob 1s infinite ease-in-out; }
+.typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes bob { 0%, 80%, 100% { opacity: .3; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 12px 0; background: var(--chat-bg); }
+.chips:empty { display: none; }
+.chips button { border: 1px solid var(--accent); color: var(--accent); background: var(--surface); border-radius: 999px; padding: 6px 11px; font: 500 13px/1.2 var(--f-body); cursor: pointer; }
+.chips button:hover { background: var(--accent-soft); }
+form.input { display: flex; gap: 8px; padding: 10px 12px; background: var(--chat-bg); }
+form.input input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 10px 14px; font: 15px var(--f-body); }
+form.input button { border: 0; background: var(--accent); color: var(--on-accent); border-radius: 999px; padding: 0 16px; font: 600 14px var(--f-body); cursor: pointer; }
+:focus-visible { outline: 2px solid var(--n8n); outline-offset: 2px; }
+
+/* ---------- n8n ---------- */
+.flow { padding: 14px 12px 4px; overflow-x: auto; }
+.flow svg { display: block; width: 100%; min-width: 520px; height: auto; }
+.node rect { fill: var(--surface-2); stroke: var(--line); stroke-width: 1.4; transition: fill .2s, stroke .2s; }
+.node text { fill: var(--ink); font: 600 12px var(--f-body); }
+.node text.sub { fill: var(--muted); font: 9.5px var(--f-mono); letter-spacing: .02em; }
+.node.on rect { fill: var(--n8n-soft); stroke: var(--n8n); stroke-width: 2.2; }
+.node.done rect { stroke: var(--accent); }
+.edge { stroke: var(--line); stroke-width: 1.6; fill: none; transition: stroke .2s; }
+.edge.dash { stroke-dasharray: 4 4; }
+.edge.on { stroke: var(--n8n); stroke-width: 2.2; }
+.flowlog { margin: 0 12px 12px; padding: 10px 12px; background: var(--surface-2); border-radius: 10px; font: 12px/1.6 var(--f-mono); color: var(--muted); height: 132px; overflow: auto; }
+.flowlog div { white-space: nowrap; }
+.flowlog .k { color: var(--n8n); }
+.flowlog .v { color: var(--ink); }
+.flowlog .g { color: var(--accent); }
+
+/* ---------- calendario ---------- */
+.cal-nav { display: flex; gap: 6px; align-items: center; }
+.cal-nav button { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 5px 10px; font: 500 13px var(--f-body); cursor: pointer; }
+.cal-nav button:disabled { opacity: .4; cursor: default; }
+.cal-nav span { font: 600 13px var(--f-body); min-width: 9.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 10px 16px 0; font-size: 12.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.cal-scroll { overflow-x: auto; padding: 10px 12px 14px; }
+.cal { display: grid; grid-template-columns: 44px repeat(6, minmax(92px, 1fr)); min-width: 600px; }
+.cal .dh { text-align: center; padding: 4px 0 8px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); }
+.cal .dh b { display: block; font: 700 20px/1.1 var(--f-display); font-stretch: 85%; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cal .dh.today b { color: var(--on-accent); background: var(--accent); width: 32px; height: 32px; line-height: 32px; border-radius: 50%; margin: 2px auto 0; }
+.cal .dh.closed { opacity: .55; }
+.hours { position: relative; }
+.hours span { position: absolute; right: 6px; transform: translateY(-50%); font: 10.5px var(--f-mono); color: var(--muted); }
+.col { position: relative; border-left: 1px solid var(--line); background-image: linear-gradient(var(--line) 1px, transparent 1px); }
+.col.pick { background-color: color-mix(in srgb, var(--n8n-soft) 45%, transparent); }
+.shut { position: absolute; left: 0; right: 0; background: repeating-linear-gradient(135deg, var(--closed) 0 6px, transparent 6px 12px); }
+.ev { position: absolute; left: 3px; right: 3px; border-radius: 5px; padding: 2px 5px; font-size: 11px; line-height: 1.25; overflow: hidden; border-left: 3px solid; }
+.ev b { font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev span { font: 10px var(--f-mono); opacity: .85; }
+.ev.canal { background: var(--amber-soft); border-color: var(--amber); color: var(--ink); }
+.ev.equipo { background: var(--staff-soft); border-color: var(--staff); color: var(--ink); }
+.ev.ia { background: var(--accent); border-color: var(--accent); color: var(--on-accent); z-index: 2; }
+.ev.new { animation: pop 1.6s ease-out; }
+@keyframes pop { 0% { transform: scale(.6); opacity: 0; box-shadow: 0 0 0 0 var(--accent); } 30% { transform: scale(1.04); opacity: 1; } 100% { transform: scale(1); box-shadow: 0 0 0 10px transparent; } }
+.offer { position: absolute; left: 3px; right: 3px; border: 1.5px dashed var(--n8n); border-radius: 5px; font: 600 10.5px var(--f-mono); color: var(--n8n); padding: 1px 5px; background: var(--surface); z-index: 1; }
+.now { position: absolute; left: -1px; right: 0; height: 2px; background: var(--danger); z-index: 3; }
+.now::before { content: ""; position: absolute; left: -4px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); }
+.cal-note { padding: 0 16px 14px; font-size: 12.5px; color: var(--muted); }
+
+/* ---------- debajo ---------- */
+.explain { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.explain article { padding: 16px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; min-width: 0; }
+.explain h3 { margin: 0 0 6px; font: 700 17px/1.2 var(--f-display); font-stretch: 88%; }
+.explain p { margin: 0; color: var(--muted); font-size: 14px; }
+.explain .num { font: 700 26px/1 var(--f-display); font-stretch: 80%; color: var(--accent); display: block; margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+.foot { font-size: 13px; color: var(--muted); max-width: 80ch; }
+.foot b { color: var(--ink); font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Demo para negocios con cita <span class="stack"><span>n8n</span><span>Claude</span><span>Google Calendar</span></span></div>
+    <h1>Una recepcionista que reserva sola, a cualquier hora</h1>
+    <p class="lede">Escribe como si fueras un cliente de <b>Barbería El Faro</b> (negocio de ejemplo). El asistente entiende lo que pides, <b>mira los huecos libres en Google Calendar</b>, te propone horas y deja la cita apuntada. En el panel de n8n ves cada paso que da, y en la agenda, cómo se llena.</p>
+  </header>
+
+  <div class="main">
+    <section class="panel chat" aria-label="Chat con el asistente">
+      <div class="chat-head">
+        <div class="avatar" aria-hidden="true">EF</div>
+        <div><b>Barbería El Faro</b><span id="estado">en línea · responde al momento</span></div>
+        <button class="btn-ghost" id="reset" type="button">Reiniciar</button>
+      </div>
+      <div class="log" id="log" aria-live="polite"></div>
+      <div class="chips" id="chips"></div>
+      <form class="input" id="form" autocomplete="off">
+        <label for="txt" class="sr" hidden>Mensaje</label>
+        <input id="txt" placeholder="Escribe un mensaje…" aria-label="Mensaje">
+        <button type="submit">Enviar</button>
+      </form>
+    </section>
+
+    <div class="right">
+      <section class="panel" aria-label="Flujo de n8n">
+        <div class="panel-h">
+          <h2><span class="dot" style="background:var(--n8n)"></span>Lo que hace n8n por dentro</h2>
+          <small id="exec">esperando un mensaje…</small>
+        </div>
+        <div class="flow">
+          <svg viewBox="0 0 640 236" role="img" aria-label="Flujo: chat del cliente, agente IA con Claude, memoria y herramientas de Google Calendar, respuesta">
+            <path class="edge" id="e-chat" d="M132 60 H236"/>
+            <path class="edge" id="e-resp" d="M404 60 H508"/>
+            <path class="edge dash" id="e-claude" d="M320 98 C320 128 70 120 70 160"/>
+            <path class="edge dash" id="e-mem" d="M320 98 C320 128 195 120 195 160"/>
+            <path class="edge dash" id="e-ver" d="M320 98 V160"/>
+            <path class="edge dash" id="e-crear" d="M320 98 C320 128 445 120 445 160"/>
+            <path class="edge dash" id="e-cancel" d="M320 98 C320 128 570 120 570 160"/>
+            <g class="node" id="n-chat"><rect x="12" y="32" width="120" height="56" rx="10"/><text class="sub" x="24" y="52">DISPARADOR</text><text x="24" y="72">Chat del cliente</text></g>
+            <g class="node" id="n-agent"><rect x="236" y="22" width="168" height="76" rx="12"/><text class="sub" x="250" y="44">AI AGENT</text><text x="250" y="66" style="font-size:15px">Agente IA</text><text class="sub" x="250" y="85">elige la herramienta</text></g>
+            <g class="node" id="n-resp"><rect x="508" y="32" width="120" height="56" rx="10"/><text class="sub" x="520" y="52">SALIDA</text><text x="520" y="72">Respuesta</text></g>
+            <g class="node" id="n-claude"><rect x="14" y="160" width="112" height="58" rx="10"/><text class="sub" x="26" y="180">MODELO</text><text x="26" y="200">Claude</text></g>
+            <g class="node" id="n-mem"><rect x="139" y="160" width="112" height="58" rx="10"/><text class="sub" x="151" y="180">MEMORIA</text><text x="151" y="200">Conversación</text></g>
+            <g class="node" id="n-ver"><rect x="264" y="160" width="112" height="58" rx="10"/><text class="sub" x="276" y="180">GOOGLE CALENDAR</text><text x="276" y="200">Ver agenda</text></g>
+            <g class="node" id="n-crear"><rect x="389" y="160" width="112" height="58" rx="10"/><text class="sub" x="401" y="180">GOOGLE CALENDAR</text><text x="401" y="200">Crear cita</text></g>
+            <g class="node" id="n-cancel"><rect x="514" y="160" width="112" height="58" rx="10"/><text class="sub" x="526" y="180">GOOGLE CALENDAR</text><text x="526" y="200">Cancelar cita</text></g>
+          </svg>
+        </div>
+        <div class="flowlog" id="flowlog" aria-live="off"></div>
+      </section>
+
+      <section class="panel" aria-label="Agenda en Google Calendar">
+        <div class="panel-h">
+          <h2><span class="dot"></span>Google Calendar · agenda del local</h2>
+          <div class="cal-nav">
+            <button type="button" id="prev" aria-label="Semana anterior">‹</button>
+            <span id="weekLabel"></span>
+            <button type="button" id="next" aria-label="Semana siguiente">›</button>
+          </div>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i>Reservada por la IA</span>
+          <span><i style="background:var(--amber-soft);border:1px solid var(--amber)"></i>Otros canales (Booksy, teléfono)</span>
+          <span><i style="background:var(--staff-soft);border:1px solid var(--staff)"></i>Apuntado por el equipo</span>
+          <span><i style="border:1.5px dashed var(--n8n)"></i>Huecos que ofrece</span>
+        </div>
+        <div class="cal-scroll"><div class="cal" id="cal"></div></div>
+        <p class="cal-note">Las citas grises y naranjas son de ejemplo. Lo que el equipo apunta a mano (médico, formación) deja de ofrecerse solo: el asistente nunca reserva encima.</p>
+      </section>
+    </div>
+  </div>
+
+  <section class="explain" aria-label="Por qué le interesa al negocio">
+    <article><span class="num">24/7</span><h3>Contesta cuando el barbero no puede</h3><p>Con las manos en una cabeza nadie coge el móvil. El asistente responde al momento, también a las 23:00, y cierra la cita sin que nadie toque nada.</p></article>
+    <article><span class="num">1 agenda</span><h3>Sin dobles reservas</h3><p>Todo acaba en el mismo Google Calendar que ya usa el negocio. Si el equipo bloquea una hora, deja de ofrecerse en el chat.</p></article>
+    <article><span class="num">0 €</span><h3>Convive con Booksy</h3><p>No hay que quitar nada. Booksy sigue trayendo clientes nuevos; los de siempre reservan por aquí sin pagar comisión.</p></article>
+  </section>
+
+  <p class="foot"><b>Cómo está hecho.</b> En esta página el chat funciona dentro del navegador para que cualquiera pueda probarlo desde el enlace. La versión real es un flujo de n8n con un agente de Claude que lee y escribe en el Google Calendar del negocio, y se conecta igual a la web o a WhatsApp. Precios, horario y citas de esta demo son de ejemplo.</p>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+/* ================= datos del negocio (ejemplo) ================= */
+var HORARIO = { 2: [[570, 810], [960, 1200]], 3: [[570, 810], [960, 1200]], 4: [[570, 810], [960, 1200]], 5: [[570, 810], [960, 1200]], 6: [[540, 840]] };
+var SERV = [
+  { id: 'fade',    n: 'Corte fade',       p: 16,   m: 30 },
+  { id: 'corte',   n: 'Corte clásico',    p: 14,   m: 30 },
+  { id: 'combo',   n: 'Corte + barba',    p: 22.5, m: 45 },
+  { id: 'barba',   n: 'Arreglo de barba', p: 10,   m: 20 },
+  { id: 'infantil',n: 'Corte infantil',   p: 12,   m: 30 },
+  { id: 'color',   n: 'Color / canas',    p: 18,   m: 40 },
+  { id: 'cejas',   n: 'Diseño de cejas',  p: 10,   m: 25 }
+];
+var SV = {}; SERV.forEach(function (s) { SV[s.id] = s; });
+var DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+var DIAS_C = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+var MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+var WEEKS = 4, OPEN_MIN = 540, CLOSE_MIN = 1200, PX = 0.9;
+
+/* ================= utilidades ================= */
+function $(id) { return document.getElementById(id); }
+function midnight(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return midnight(x); }
+function same(a, b) { return a.getTime() === b.getTime(); }
+function monday(d) { var x = midnight(d); var w = (x.getDay() + 6) % 7; return addDays(x, -w); }
+function hhmm(m) { return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); }
+function eur(p) { return (p % 1 ? p.toFixed(2).replace('.', ',') : p) + ' €'; }
+function diaTxt(d) { return DIAS[d.getDay()] + ' ' + d.getDate(); }
+function diaLargo(d) { return DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()]; }
+function cap(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function norm(t) { return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[¿?¡!,;]/g, ' ').replace(/\s+/g, ' ').trim(); }
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+function clock() { var d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+function nowMin() { var d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+
+var TODAY = midnight(new Date());
+var WEEK0 = monday(TODAY);
+
+/* ================= agenda (Google Calendar simulado) ================= */
+var NOMBRES = ['Marcos', 'Hugo', 'Toni', 'Pablo', 'Álex', 'Iker', 'Jorge', 'Rubén', 'Nacho', 'Sergi', 'Vicent', 'Joan', 'Carlos', 'David', 'Raúl', 'Adrián', 'Pau', 'Óscar'];
+var CANALES = ['Booksy', 'Teléfono', 'Booksy', 'Instagram', 'Booksy', 'En el local'];
+// [hora, servicio | minutos, título del equipo]
+var PLANTILLA = {
+  2: [['9:30', 'corte'], ['10:30', 'combo'], ['12:00', 'barba'], ['17:00', 60, 'Médico (Dani)'], ['18:30', 'fade']],
+  3: [['9:30', 'fade'], ['11:00', 'color'], ['16:00', 'corte'], ['16:30', 'infantil'], ['19:00', 'combo']],
+  4: [['10:00', 'fade'], ['10:30', 'barba'], ['12:30', 'corte'], ['17:30', 90, 'Formación'], ['19:30', 'barba']],
+  5: [['9:30', 'fade'], ['10:00', 'fade'], ['11:15', 'corte'], ['16:00', 'combo'], ['17:00', 'fade'], ['18:00', 'corte'], ['19:15', 'barba']],
+  6: [['9:00', 'combo'], ['10:00', 'fade'], ['10:30', 'corte'], ['11:30', 'infantil'], ['12:30', 'fade'], ['13:15', 'barba']]
+};
+var events = [], seq = 0;
+function toMin(s) { var p = s.split(':'); return +p[0] * 60 + +p[1]; }
+function seed() {
+  events = []; var k = 0;
+  for (var w = 0; w < WEEKS; w++) {
+    for (var dow = 2; dow <= 6; dow++) {
+      var day = addDays(WEEK0, w * 7 + dow - 1);
+      // semanas impares cambian martes por miércoles para que no se vean calcadas
+      var tpl = PLANTILLA[(w % 2 && (dow === 2 || dow === 3)) ? (dow === 2 ? 3 : 2) : dow];
+      tpl.forEach(function (row, i) {
+        if (w > 0 && (i + w) % 4 === 0) return; // semanas futuras, algo más vacías
+        var s = toMin(row[0]);
+        if (typeof row[1] === 'number') {
+          events.push({ id: 'e' + (++seq), day: day, s: s, e: s + row[1], title: row[2], kind: 'equipo' });
+        } else {
+          var sv = SV[row[1]], who = NOMBRES[k % NOMBRES.length], src = CANALES[k % CANALES.length]; k++;
+          events.push({ id: 'e' + (++seq), day: day, s: s, e: s + sv.m, title: sv.n + ' — ' + who, src: src, kind: 'canal' });
+        }
+      });
+    }
+  }
+}
+function dayEvents(day) { return events.filter(function (e) { return same(e.day, day); }).sort(function (a, b) { return a.s - b.s; }); }
+function isOpen(day) { return !!HORARIO[day.getDay()]; }
+function freeSlots(day, m) {
+  var tr = HORARIO[day.getDay()]; if (!tr) return [];
+  var ev = dayEvents(day), out = [], min0 = same(day, TODAY) ? nowMin() + 30 : -1;
+  tr.forEach(function (t) {
+    for (var s = t[0]; s + m <= t[1]; s += 15) {
+      if (s < min0) continue;
+      var clash = ev.some(function (e) { return s < e.e && s + m > e.s; });
+      if (!clash) out.push(s);
+    }
+  });
+  return out;
+}
+function pickSpread(slots, pod) {
+  var f = slots.filter(function (s) { return pod === 'manana' ? s < 840 : pod === 'tarde' ? s >= 900 : true; });
+  if (!f.length) f = slots;
+  var out = [];
+  f.forEach(function (s) { if (out.length < 4 && (!out.length || s - out[out.length - 1] >= 45)) out.push(s); });
+  return out;
+}
+function nearest(slots, want) {
+  return slots.slice().sort(function (a, b) { return Math.abs(a - want) - Math.abs(b - want); }).slice(0, 3).sort(function (a, b) { return a - b; });
+}
+function nextOpen(from, m) {
+  for (var i = 0; i < WEEKS * 7; i++) { var d = addDays(from, i); if (d < TODAY || d >= addDays(WEEK0, WEEKS * 7)) continue; if (isOpen(d) && freeSlots(d, m || 30).length) return d; }
+  return null;
+}
+
+/* ================= calendario: pintado ================= */
+var week = 0, offer = null, flashId = null;
+function renderCal() {
+  var cal = $('cal'), mon = addDays(WEEK0, week * 7), html = '<div></div>';
+  var end = addDays(mon, 5);
+  $('weekLabel').textContent = mon.getDate() + (mon.getMonth() !== end.getMonth() ? ' ' + MESES[mon.getMonth()].slice(0, 3) : '') + ' – ' + end.getDate() + ' ' + MESES[end.getMonth()].slice(0, 3);
+  $('prev').disabled = week === 0; $('next').disabled = week === WEEKS - 1;
+  for (var i = 0; i < 6; i++) {
+    var d = addDays(mon, i);
+    html += '<div class="dh' + (same(d, TODAY) ? ' today' : '') + (isOpen(d) ? '' : ' closed') + '">' + DIAS_C[d.getDay()] + '<b>' + d.getDate() + '</b></div>';
+  }
+  var H = (CLOSE_MIN - OPEN_MIN) * PX, grid = 'background-size:100% ' + (60 * PX) + 'px;height:' + H + 'px';
+  html += '<div class="hours" style="height:' + H + 'px">';
+  for (var h = 10; h < 20; h++) html += '<span style="top:' + ((h * 60 - OPEN_MIN) * PX) + 'px">' + h + ':00</span>';
+  html += '</div>';
+  for (var j = 0; j < 6; j++) {
+    var day = addDays(mon, j), tr = HORARIO[day.getDay()] || [], c = '';
+    // tramos cerrados
+    var cur = OPEN_MIN;
+    tr.concat([[CLOSE_MIN, CLOSE_MIN]]).forEach(function (t) { if (t[0] > cur) c += '<div class="shut" style="top:' + ((cur - OPEN_MIN) * PX) + 'px;height:' + ((t[0] - cur) * PX) + 'px"></div>'; cur = Math.max(cur, t[1]); });
+    dayEvents(day).forEach(function (e) {
+      var parts = e.title.split(' — ');
+      c += '<div class="ev ' + e.kind + (e.id === flashId ? ' new' : '') + '" style="top:' + ((e.s - OPEN_MIN) * PX) + 'px;height:' + Math.max((e.e - e.s) * PX - 2, 14) + 'px" title="' + esc(e.title + ' · ' + hhmm(e.s) + '–' + hhmm(e.e) + (e.src ? ' · ' + e.src : '')) + '">' +
+        '<b>' + esc(parts[1] || parts[0]) + '</b>' + ((e.e - e.s) >= 30 ? '<span>' + hhmm(e.s) + ' · ' + esc(e.kind === 'ia' ? 'IA' : (e.src || 'equipo')) + '</span>' : '') + '</div>';
+    });
+    if (offer && same(offer.day, day)) offer.slots.forEach(function (s) {
+      c += '<div class="offer" style="top:' + ((s - OPEN_MIN) * PX) + 'px;height:' + Math.max(offer.m * PX - 2, 14) + 'px">' + hhmm(s) + '</div>';
+    });
+    if (same(day, TODAY)) { var nm = nowMin(); if (nm > OPEN_MIN && nm < CLOSE_MIN) c += '<div class="now" style="top:' + ((nm - OPEN_MIN) * PX) + 'px"></div>'; }
+    html += '<div class="col' + (offer && same(offer.day, day) ? ' pick' : '') + '" style="' + grid + '">' + c + '</div>';
+  }
+  cal.innerHTML = html;
+}
+function showDay(day) { var w = Math.floor(Math.round((day - WEEK0) / 864e5) / 7); if (w >= 0 && w < WEEKS) week = w; renderCal(); }
+$('prev').onclick = function () { if (week > 0) { week--; renderCal(); } };
+$('next').onclick = function () { if (week < WEEKS - 1) { week++; renderCal(); } };
+
+/* ================= n8n: animación de la ejecución ================= */
+var NODES = ['chat', 'agent', 'resp', 'claude', 'mem', 'ver', 'crear', 'cancel'], runN = 0;
+function nodeState(id, st) { var n = $('n-' + id); n.classList.remove('on', 'done'); if (st) n.classList.add(st); var e = $('e-' + id); if (e) e.classList.toggle('on', st === 'on'); }
+function flog(k, v, g) {
+  var l = $('flowlog'), d = document.createElement('div');
+  d.innerHTML = '<span>' + clock() + '</span>  <span class="k">' + esc(k) + '</span>  <span class="v">' + esc(v) + '</span>' + (g ? '  <span class="g">' + esc(g) + '</span>' : '');
+  l.appendChild(d); l.scrollTop = l.scrollHeight;
+}
+async function step(id, k, v, ms) {
+  nodeState(id, 'on'); var t0 = Date.now(); await sleep(ms); nodeState(id, 'done'); flog(k, v, (Date.now() - t0) + ' ms');
+}
+async function runFlow(texto, tools) {
+  runN++; var t0 = Date.now();
+  NODES.forEach(function (n) { nodeState(n, null); });
+  $('exec').textContent = 'ejecución #' + (1040 + runN) + ' · en curso';
+  flog('─── ejecución #' + (1040 + runN), '', '');
+  await step('chat', 'Chat del cliente', '«' + (texto.length > 38 ? texto.slice(0, 38) + '…' : texto) + '»', 220);
+  nodeState('agent', 'on');
+  await step('mem', 'Memoria', 'recupera la conversación', 180);
+  await step('claude', 'Claude', 'entiende la petición', 420 + Math.random() * 200);
+  for (var i = 0; i < tools.length; i++) {
+    await step(tools[i].id, tools[i].k, tools[i].v, tools[i].ms || 520);
+    if (tools[i].after) tools[i].after();
+    await step('claude', 'Claude', 'redacta la respuesta', 260);
+  }
+  nodeState('agent', 'done'); flog('Agente IA', tools.length ? tools.length + ' herramienta' + (tools.length > 1 ? 's' : '') + ' usada' + (tools.length > 1 ? 's' : '') : 'sin herramientas', '');
+  await step('resp', 'Respuesta', 'enviada al chat', 140);
+  $('exec').textContent = 'ejecución #' + (1040 + runN) + ' · ' + ((Date.now() - t0) / 1000).toFixed(1).replace('.', ',') + ' s · ok';
+}
+function toolVer(day, m) {
+  return { id: 'ver', k: 'Google Calendar · Ver agenda', v: diaTxt(day) + ' → ' + dayEvents(day).length + ' eventos, ' + freeSlots(day, m).length + ' huecos de ' + m + ' min', ms: 560, after: function () { showDay(day); } };
+}
+
+/* ================= chat: pintado ================= */
+var busy = false;
+function push(html, who) {
+  var d = document.createElement('div'); d.className = 'msg ' + who; d.innerHTML = html + '<span class="t">' + clock() + (who === 'me' ? ' ✓✓' : '') + '</span>';
+  $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight;
+}
+function typing(on) {
+  var t = $('typing');
+  if (on && !t) { t = document.createElement('div'); t.className = 'typing'; t.id = 'typing'; t.innerHTML = '<i></i><i></i><i></i>'; $('log').appendChild(t); $('log').scrollTop = $('log').scrollHeight; $('estado').textContent = 'escribiendo…'; }
+  if (!on && t) { t.remove(); $('estado').textContent = 'en línea · responde al momento'; }
+}
+function chips(arr) {
+  var c = $('chips'); c.innerHTML = '';
+  (arr || []).forEach(function (o) {
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = o.l;
+    b.onclick = function () { if (!busy) send(o.v || o.l, o.l); };
+    c.appendChild(b);
+  });
+}
+var START_CHIPS = [{ l: 'Quiero un fade el viernes por la tarde' }, { l: '¿Cuánto vale corte y barba?' }, { l: '¿Tenéis hueco mañana a las 10?' }, { l: '¿Dónde estáis?' }];
+
+/* ================= entender el mensaje ================= */
+var MAPA_SERV = [
+  ['combo', ['corte y barba', 'corte + barba', 'corte mas barba', 'pelo y barba', 'fade y barba', 'fade + barba', 'barba y corte', 'combo', 'las dos cosas']],
+  ['infantil', ['nino', 'nina', 'hijo', 'hija', 'infantil', 'peque', 'crio', 'chaval']],
+  ['fade', ['fade', 'degradado', 'desvanecido']],
+  ['color', ['tinte', 'color', 'canas', 'mechas']],
+  ['cejas', ['ceja']],
+  ['barba', ['barba', 'afeitar', 'afeitado', 'perfilar']],
+  ['corte', ['corte', 'cortar', 'pelar', 'pelo', 'clasico']]
+];
+function findServ(n) { for (var i = 0; i < MAPA_SERV.length; i++) for (var j = 0; j < MAPA_SERV[i][1].length; j++) if (n.indexOf(MAPA_SERV[i][1][j]) !== -1) return SV[MAPA_SERV[i][0]]; return null; }
+function parse(raw) {
+  var n = ' ' + norm(raw) + ' ', r = { serv: findServ(n) };
+  if (/(por|de|a) la tarde|tarde/.test(n)) r.pod = 'tarde';
+  if (/(por|de|a) la manana/.test(n)) { r.pod = 'manana'; n = n.replace(/(por|de|a) la manana/g, ' '); }
+  // día
+  var m;
+  if (/pasado manana/.test(n)) { r.day = addDays(TODAY, 2); n = n.replace('pasado manana', ' '); }
+  else if (/\bmanana\b/.test(n)) { r.day = addDays(TODAY, 1); }
+  else if (/\bhoy\b/.test(n)) { r.day = TODAY; }
+  var dn = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+  if (!r.day) for (var i = 0; i < 7; i++) if (n.indexOf(' ' + dn[i]) !== -1) { var add = (i - TODAY.getDay() + 7) % 7; if (/(que viene|proximo|siguiente)/.test(n) && add === 0) add = 7; r.day = addDays(TODAY, add); if (/semana que viene|proxima semana/.test(n) && add < 7 && addDays(TODAY, add) < addDays(WEEK0, 7)) r.day = addDays(r.day, 7); break; }
+  if ((m = n.match(/\b(\d{1,2})\s*[\/\-]\s*(\d{1,2})\b/))) { r.day = fecha(+m[1], +m[2] - 1); n = n.replace(m[0], ' '); }
+  else if ((m = n.match(/\b(\d{1,2}) de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)/))) { r.day = fecha(+m[1], MESES.indexOf(m[2])); n = n.replace(m[0], ' '); }
+  else if (!r.day && (m = n.match(/\bel (dia )?(\d{1,2})\b(?! y)/))) { var dd = +m[2], cand = new Date(TODAY.getFullYear(), TODAY.getMonth(), dd); if (cand < TODAY) cand = new Date(TODAY.getFullYear(), TODAY.getMonth() + 1, dd); r.day = midnight(cand); n = n.replace(m[0], ' '); }
+  // teléfono (antes que la hora para que no se confundan los números)
+  var digits = raw.replace(/[^\d+]/g, '');
+  if ((m = digits.match(/(?:\+?34)?([6789]\d{8})$/))) r.tel = m[1];
+  else if (raw.replace(/\D/g, '').length >= 6 && raw.replace(/\D/g, '').length <= 12 && !/[:h.]\d{2}\b/.test(raw)) r.telMal = true;
+  if (!r.tel && !r.telMal) {
+    var h = null, mi = 0;
+    if ((m = n.match(/\b(\d{1,2})\s*[:h\.]\s*(\d{2})\b/))) { h = +m[1]; mi = +m[2]; }
+    else if ((m = n.match(/\b(?:a las|sobre las|las|a la) (\d{1,2})( y media| y cuarto| menos cuarto)?\b/))) { h = +m[1]; mi = m[2] === ' y media' ? 30 : m[2] === ' y cuarto' ? 15 : m[2] === ' menos cuarto' ? -15 : 0; }
+    else if ((m = n.match(/^\s*(\d{1,2})\s*$/))) { h = +m[1]; }
+    if (h !== null && h <= 23) { if (h <= 8 || (r.pod === 'tarde' && h < 12)) h += 12; r.hora = h * 60 + mi; }
+  }
+  if ((m = raw.match(/(?:me llamo|soy|mi nombre es)\s+([A-Za-zÁÉÍÓÚÑáéíóúñü]+(?:\s+[A-Za-zÁÉÍÓÚÑáéíóúñü]+)?)/i))) r.nombre = cap(m[1].toLowerCase()).replace(/\s(\w)/, function (x) { return x.toUpperCase(); });
+  r.n = n;
+  return r;
+}
+function fecha(d, mo) { var x = new Date(TODAY.getFullYear(), mo, d); if (x < TODAY) x = new Date(TODAY.getFullYear() + 1, mo, d); return midnight(x); }
+function has(n, re) { return re.test(n); }
+
+/* ================= la conversación ================= */
+var st, ultima = null;
+function reset() {
+  st = { paso: null, d: {}, nombre: null, tel: null }; ultima = null; offer = null; flashId = null; week = 0; seq = 0;
+  seed(); renderCal();
+  $('log').innerHTML = ''; $('flowlog').innerHTML = ''; NODES.forEach(function (n) { nodeState(n, null); }); $('exec').textContent = 'esperando un mensaje…';
+  push('¡Hola! Soy el asistente de <b>Barbería El Faro</b> 💈\nTe busco hueco y te dejo la cita apuntada. ¿Qué te quieres hacer?', 'bot');
+  chips(START_CHIPS);
+}
+
+async function send(text, label) {
+  text = String(text || '').trim(); if (!text || busy) return;
+  busy = true; chips([]); push(esc(label || text), 'me'); $('txt').value = '';
+  var tools = [], out = await think(text, tools);
+  typing(true);
+  await runFlow(label || text, tools);
+  typing(false);
+  push(out.txt, 'bot'); chips(out.chips);
+  busy = false;
+}
+
+/* Decide la respuesta. Las herramientas se añaden a `tools` para que n8n las "ejecute". */
+async function think(text, tools) {
+  var p = parse(text), n = p.n, d = st.d;
+  if (p.nombre) st.nombre = p.nombre;
+
+  // pasos que esperan un dato concreto
+  if (st.paso === 'confirmar') {
+    if (/\b(si|vale|ok|okey|confirmo|confirmar|perfecto|dale|de acuerdo|genial|claro|venga)\b/.test(n)) return reservar(tools);
+    if (/\b(no|cambiar|otra)\b/.test(n)) { d.hora = null; d.ok = false; st.paso = null; return preguntarHora(tools, 'Sin problema. ¿A qué hora te vendría mejor?'); }
+  }
+  if (st.paso === 'cancelar') {
+    if (/\b(si|vale|ok|confirmo|dale|claro|venga)\b/.test(n)) return cancelar(tools);
+    st.paso = null; return { txt: 'Perfecto, la dejo como está. Te esperamos 👍', chips: START_CHIPS };
+  }
+  if (st.paso === 'nombre' && !esPregunta(n) && !p.serv && !p.day) {
+    st.nombre = p.nombre || cap(text.replace(/^(soy|me llamo)\s+/i, '').split(/\s+/).slice(0, 2).join(' ').toLowerCase()).replace(/\s(\S)/, function (x) { return x.toUpperCase(); });
+    st.paso = null; return siguiente(tools);
+  }
+  if (st.paso === 'tel' && !esPregunta(n)) {
+    if (p.tel) { st.tel = p.tel; st.paso = null; return siguiente(tools); }
+    return { txt: 'Ese número no me cuadra 🤔 Pásame un móvil de 9 cifras, por ejemplo 612 345 678.', chips: [] };
+  }
+
+  if (/otro dia|otra fecha|cambiar de dia/.test(n) && st.d.serv) { st.d.day = null; st.d.hora = null; st.d.ok = false; offer = null; renderCal(); return siguiente(tools); }
+
+  // preguntas sueltas
+  if (has(n, /cancel|anular|no (puedo|podre) ir/)) return pedirCancelar();
+  if (has(n, /precio|cuanto (vale|cuesta|es|sale)|tarifa|que vale/)) {
+    var r = p.serv ? 'Un <b>' + p.serv.n.toLowerCase() + '</b> son <b>' + eur(p.serv.p) + '</b> (' + p.serv.m + ' min).' :
+      'Te paso los precios:\n' + SERV.map(function (s) { return '· ' + s.n + ' — ' + eur(s.p); }).join('\n');
+    if (p.serv && !st.paso) d.serv = p.serv;
+    return { txt: r + (p.serv ? '\n¿Te busco hueco?' : '\n¿Qué te apetece?'), chips: p.serv ? [{ l: 'Sí, ¿qué día hay?', v: 'quiero cita' }, { l: 'De momento no' }] : SERV.slice(0, 4).map(function (s) { return { l: s.n, v: 'quiero ' + s.n.toLowerCase() }; }) };
+  }
+  if (has(n, /horario|a que hora (abr|cerr)|abris|cerrais|abierto|abren|cierran/)) return { txt: 'Abrimos de <b>martes a viernes</b> de 9:30 a 13:30 y de 16:00 a 20:00, y los <b>sábados</b> de 9:00 a 14:00. Domingo y lunes, cerrado.', chips: [{ l: 'Pedir cita', v: 'quiero cita' }] };
+  if (has(n, /donde|direccion|como llego|aparca|ubicacion/)) return { txt: 'Estamos en <b>C/ Major 10, Castelló</b> (dirección de ejemplo). Hay zona azul en la calle y un parking a 3 minutos.', chips: [{ l: 'Pedir cita', v: 'quiero cita' }] };
+  if (has(n, /bizum|tarjeta|pagar|efectivo/)) return reanudar('Sí: tarjeta, Bizum o efectivo, como prefieras.', tools);
+  if (has(n, /extension|keratina|alisado|depila|manicura|unas/)) return reanudar('Eso no lo hacemos, lo siento. Para cualquier cosa fuera de la carta, mejor llama al local.', tools);
+  if (has(n, /\b(gracias|grax|genial|perfecto)\b/) && !st.paso && !p.serv && !p.day && p.hora == null) return { txt: '¡A ti! Cualquier cosa me escribes por aquí 🙌', chips: [] };
+  if (has(n, /^\s*(no|de momento no|nada)\s*$/)) { st.paso = null; return { txt: 'Vale, sin prisa. Aquí estoy cuando quieras 👋', chips: START_CHIPS }; }
+
+  // reserva: rellenar lo que haya dicho
+  var quiere = p.serv || p.day || p.hora != null || has(n, /cita|reserv|hueco|turno|pedir|quiero|tienes|teneis|libre|puedo ir|me pasas/);
+  if (!quiere && !st.paso) {
+    if (has(n, /^\s*(hola|buenas|hey|ey|buenos dias|buenas tardes)\b/)) return { txt: '¡Buenas! ¿Te busco cita o tienes alguna duda?', chips: START_CHIPS };
+    return { txt: 'Perdona, no te he pillado 😅 Te puedo dar cita, decirte precios y horario, o cancelar una reserva.', chips: START_CHIPS };
+  }
+  if (p.serv) d.serv = p.serv;
+  if (p.day) { d.day = p.day; d.hora = null; d.ok = false; }
+  if (p.pod) d.pod = p.pod;
+  if (p.hora != null) { d.hora = p.hora; d.ok = false; }
+  if (p.tel) st.tel = p.tel;
+  return siguiente(tools);
+}
+function esPregunta(n) { return /precio|cuanto|horario|donde|bizum|tarjeta|cancel|abr[ei]s|aparca/.test(n); }
+function reanudar(txt, tools) {
+  if (!st.paso && !st.d.serv) return { txt: txt, chips: [{ l: 'Pedir cita', v: 'quiero cita' }] };
+  var r = siguiente(tools); r.txt = txt + '\n\n' + r.txt; return r;
+}
+
+function siguiente(tools) {
+  var d = st.d;
+  if (!d.serv) { st.paso = 'serv'; return { txt: '¿Qué te quieres hacer?', chips: SERV.slice(0, 5).map(function (s) { return { l: s.n + ' · ' + eur(s.p), v: 'quiero ' + s.n.toLowerCase() }; }) }; }
+  if (!d.day) {
+    st.paso = 'day'; var ch = [], x = TODAY;
+    for (var i = 0; i < 14 && ch.length < 4; i++) { x = addDays(TODAY, i); if (isOpen(x) && freeSlots(x, d.serv.m).length) ch.push({ l: cap(i === 0 ? 'hoy' : i === 1 ? 'mañana' : diaTxt(x)), v: 'el ' + x.getDate() + '/' + (x.getMonth() + 1) }); }
+    return { txt: 'Un <b>' + d.serv.n.toLowerCase() + '</b> (' + eur(d.serv.p) + ', ' + d.serv.m + ' min). ¿Qué día te viene bien?', chips: ch };
+  }
+  if (d.day < TODAY) { d.day = null; return { txt: 'Esa fecha ya ha pasado 😅 ¿Qué día te va bien?', chips: [] }; }
+  if (d.day >= addDays(WEEK0, WEEKS * 7)) { d.day = null; return { txt: 'De momento la agenda está abierta hasta ' + diaLargo(addDays(WEEK0, WEEKS * 7 - 2)) + '. ¿Te va bien algún día antes?', chips: [] }; }
+  if (!isOpen(d.day)) {
+    var alt = nextOpen(d.day, d.serv.m), dia = DIAS[d.day.getDay()]; dia = /s$/.test(dia) ? dia : dia + 's';
+    if (!alt) { d.day = null; return { txt: 'Los ' + dia + ' cerramos y no me quedan huecos en las próximas semanas. Mejor llama al local.', chips: [] }; }
+    d.day = alt;
+    tools.push(toolVer(alt, d.serv.m));
+    var sl = pickSpread(freeSlots(alt, d.serv.m), d.pod); offer = { day: alt, slots: sl, m: d.serv.m };
+    st.paso = 'hora';
+    return { txt: 'Los ' + dia + ' cerramos. El <b>' + diaTxt(alt) + '</b> tengo libre a las ' + lista(sl) + '. ¿Te cuadra alguna?', chips: horaChips(sl) };
+  }
+  if (d.hora == null) return preguntarHora(tools);
+  if (!d.ok) {
+    // comprobar que la hora pedida está libre
+    var libres = freeSlots(d.day, d.serv.m);
+    tools.push(toolVer(d.day, d.serv.m));
+    if (libres.indexOf(d.hora) === -1) {
+      var cerca = nearest(libres, d.hora), pedida = hhmm(d.hora); d.hora = null;
+      if (!cerca.length) return diaLleno(tools);
+      offer = { day: d.day, slots: cerca, m: d.serv.m }; st.paso = 'hora';
+      return { txt: 'A las ' + pedida + ' el ' + diaTxt(d.day) + ' no puedo, ' + (dentroHorario(d.day, toMin(pedida)) ? 'ya está cogido' : 'estamos cerrados') + '. Lo más cerca que tengo: ' + lista(cerca) + '.', chips: horaChips(cerca) };
+    }
+    d.ok = true; offer = { day: d.day, slots: [d.hora], m: d.serv.m };
+  }
+  if (!st.nombre) { st.paso = 'nombre'; return { txt: '¡Hecho, el ' + diaTxt(d.day) + ' a las <b>' + hhmm(d.hora) + '</b> está libre! ¿A nombre de quién la apunto?', chips: [] }; }
+  if (!st.tel) { st.paso = 'tel'; return { txt: 'Gracias, ' + esc(st.nombre) + '. ¿Me dejas un móvil? Es para mandarte el recordatorio el día antes.', chips: [] }; }
+  st.paso = 'confirmar';
+  return { txt: 'Te apunto:\n<b>' + d.serv.n + '</b> · ' + cap(diaLargo(d.day)) + ' a las <b>' + hhmm(d.hora) + '</b>\n' + eur(d.serv.p) + ' · a nombre de ' + esc(st.nombre) + ' (' + st.tel.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3') + ')\n¿La confirmo?', chips: [{ l: 'Sí, confírmala', v: 'si' }, { l: 'Cambiar la hora', v: 'no' }] };
+}
+function dentroHorario(day, m) { return (HORARIO[day.getDay()] || []).some(function (t) { return m >= t[0] && m < t[1]; }); }
+function lista(sl) { var h = sl.map(hhmm); return h.length > 1 ? h.slice(0, -1).join(', ') + ' o ' + h[h.length - 1] : h[0]; }
+function horaChips(sl) { return sl.map(function (s) { return { l: hhmm(s), v: hhmm(s) }; }).concat([{ l: 'Otro día', v: 'otro dia' }]); }
+function diaLleno(tools) {
+  var d = st.d, alt = nextOpen(addDays(d.day, 1), d.serv.m), dia = diaTxt(d.day);
+  if (!alt) { d.day = null; st.paso = null; return { txt: 'El ' + dia + ' está completo y no me quedan huecos más adelante. Mejor llama al local.', chips: [] }; }
+  d.day = alt; tools.push(toolVer(alt, d.serv.m));
+  var sl = pickSpread(freeSlots(alt, d.serv.m), d.pod); offer = { day: alt, slots: sl, m: d.serv.m }; st.paso = 'hora';
+  return { txt: 'Para ' + (d.serv.id === 'combo' ? 'corte + barba' : 'un ' + d.serv.n.toLowerCase()) + ' (' + d.serv.m + ' min) el ' + dia + ' lo tengo completo. El <b>' + diaTxt(alt) + '</b> me quedan: ' + lista(sl) + '.', chips: horaChips(sl) };
+}
+function preguntarHora(tools, intro) {
+  var d = st.d, libres = freeSlots(d.day, d.serv.m);
+  tools.push(toolVer(d.day, d.serv.m));
+  if (!libres.length) return diaLleno(tools);
+  var sl = pickSpread(libres, d.pod); offer = { day: d.day, slots: sl, m: d.serv.m }; st.paso = 'hora';
+  var franja = d.pod === 'tarde' ? ' por la tarde' : d.pod === 'manana' ? ' por la mañana' : '';
+  return { txt: (intro ? intro + '\n' : '') + 'El <b>' + diaTxt(d.day) + '</b>' + franja + ' tengo libre a las ' + lista(sl) + (sl.length > 1 ? '. ¿Cuál te va mejor?' : '. ¿Te va bien?'), chips: horaChips(sl) };
+}
+function reservar(tools) {
+  var d = st.d, ev = { id: 'e' + (++seq), day: d.day, s: d.hora, e: d.hora + d.serv.m, title: d.serv.n + ' — ' + st.nombre, kind: 'ia', src: 'IA' };
+  // por si mientras tanto alguien ha cogido la hora
+  var libre = freeSlots(d.day, d.serv.m).indexOf(d.hora) !== -1;
+  tools.push(toolVer(d.day, d.serv.m));
+  if (!libre) { d.hora = null; d.ok = false; st.paso = null; return preguntarHora(tools, 'Vaya, esa hora se acaba de ocupar.'); }
+  tools.push({ id: 'crear', k: 'Google Calendar · Crear cita', v: '«' + ev.title + '» ' + diaTxt(d.day) + ' ' + hhmm(ev.s) + '–' + hhmm(ev.e), ms: 650, after: function () { events.push(ev); flashId = ev.id; offer = null; showDay(ev.day); } });
+  ultima = ev; var resumen = d.serv.n + ' el ' + diaLargo(d.day) + ' a las ' + hhmm(d.hora);
+  st.d = {}; st.paso = null;
+  return { txt: '✅ ¡Listo, ' + esc(st.nombre) + '! Tienes <b>' + resumen + '</b>.\nEl día antes te mando un recordatorio. Si no puedes venir, escríbeme por aquí y la cancelo.\n<span class="ok">● Guardada en Google Calendar</span>', chips: [{ l: 'Quiero cancelarla', v: 'cancelar mi cita' }, { l: 'Gracias!' }] };
+}
+function pedirCancelar() {
+  if (!ultima || events.indexOf(ultima) === -1) { st.paso = null; return { txt: 'No veo ninguna cita tuya reservada desde este chat. Si la pediste por teléfono o por Booksy, cancélala por ahí o llama al local.', chips: START_CHIPS }; }
+  st.paso = 'cancelar';
+  return { txt: '¿Cancelo tu cita de <b>' + ultima.title.split(' — ')[0].toLowerCase() + '</b> del ' + diaLargo(ultima.day) + ' a las ' + hhmm(ultima.s) + '?', chips: [{ l: 'Sí, cancélala', v: 'si' }, { l: 'No, la mantengo', v: 'no' }] };
+}
+function cancelar(tools) {
+  var ev = ultima; st.paso = null;
+  tools.push({ id: 'ver', k: 'Google Calendar · Ver agenda', v: 'busca «' + ev.title + '»', ms: 480, after: function () { showDay(ev.day); } });
+  tools.push({ id: 'cancel', k: 'Google Calendar · Cancelar cita', v: 'borra el evento ' + ev.id + ' · ' + diaTxt(ev.day) + ' ' + hhmm(ev.s), ms: 520, after: function () { events.splice(events.indexOf(ev), 1); renderCal(); } });
+  ultima = null;
+  return { txt: 'Hecho, cita cancelada. El hueco ya vuelve a estar libre para otro cliente. ¿Te busco otro día?', chips: [{ l: 'Sí, otro día', v: 'quiero cita' }, { l: 'No, gracias', v: 'no' }] };
+}
+
+/* ================= arranque ================= */
+$('form').addEventListener('submit', function (e) { e.preventDefault(); send($('txt').value); });
+$('reset').onclick = function () { if (!busy) reset(); };
+reset();
+setInterval(function () { if (!busy) renderCal(); }, 60000);
+})();
+</script>
+</body>
+</html>
