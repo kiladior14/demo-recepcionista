@@ -161,12 +161,12 @@ form.input button { border: 0; background: var(--accent); color: var(--on-accent
 </style>
 </head>
 <body>
-
 <div class="wrap">
   <header class="top">
     <div class="eyebrow">Demo para negocios con cita <span class="stack"><span>n8n</span><span>Claude</span><span>Google Calendar</span></span></div>
     <h1>Una recepcionista que reserva sola, a cualquier hora</h1>
     <p class="lede">Escribe como si fueras un cliente de <b>Barbería El Faro</b> (negocio de ejemplo). El asistente entiende lo que pides, <b>mira los huecos libres en Google Calendar</b>, te propone horas y deja la cita apuntada. En el panel de n8n ves cada paso que da, y en la agenda, cómo se llena.</p>
+    <p class="lede"><a href="https://kiladior14.github.io/demo-recepcionista/barberia/" style="color:var(--accent);font-weight:600">Ver la web como la ve el cliente →</a></p>
   </header>
 
   <div class="main">
@@ -296,6 +296,13 @@ var PLANTILLA = {
   6: [['9:00', 'combo'], ['10:00', 'fade'], ['10:30', 'corte'], ['11:30', 'infantil'], ['12:30', 'fade'], ['13:15', 'barba']]
 };
 var events = [], seq = 0;
+// Las citas que mete el asistente se guardan en este navegador, así la web del cliente
+// y la demo por dentro (mismo dominio en GitHub Pages) ven la misma agenda.
+var KEY = 'faro-reservas-v1';
+function stored() { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } }
+function store(a) { try { localStorage.setItem(KEY, JSON.stringify(a)); } catch (e) {} }
+function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function fromIso(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
 function toMin(s) { var p = s.split(':'); return +p[0] * 60 + +p[1]; }
 function seed() {
   events = []; var k = 0;
@@ -316,6 +323,10 @@ function seed() {
       });
     }
   }
+  stored().forEach(function (r) {
+    var day = fromIso(r.day);
+    if (day >= TODAY) events.push({ id: r.id, day: day, s: r.s, e: r.e, title: r.title, kind: 'ia', src: 'IA' });
+  });
 }
 function dayEvents(day) { return events.filter(function (e) { return same(e.day, day); }).sort(function (a, b) { return a.s - b.s; }); }
 function isOpen(day) { return !!HORARIO[day.getDay()]; }
@@ -616,17 +627,18 @@ function preguntarHora(tools, intro) {
   return { txt: (intro ? intro + '\n' : '') + 'El <b>' + diaTxt(d.day) + '</b>' + franja + ' tengo libre a las ' + lista(sl) + (sl.length > 1 ? '. ¿Cuál te va mejor?' : '. ¿Te va bien?'), chips: horaChips(sl) };
 }
 function reservar(tools) {
-  var d = st.d, ev = { id: 'e' + (++seq), day: d.day, s: d.hora, e: d.hora + d.serv.m, title: d.serv.n + ' — ' + st.nombre, kind: 'ia', src: 'IA' };
+  var d = st.d, ev = { id: 'r' + Date.now().toString(36), day: d.day, s: d.hora, e: d.hora + d.serv.m, title: d.serv.n + ' — ' + st.nombre, kind: 'ia', src: 'IA' };
   // por si mientras tanto alguien ha cogido la hora
   var libre = freeSlots(d.day, d.serv.m).indexOf(d.hora) !== -1;
   tools.push(toolVer(d.day, d.serv.m));
   if (!libre) { d.hora = null; d.ok = false; st.paso = null; return preguntarHora(tools, 'Vaya, esa hora se acaba de ocupar.'); }
-  tools.push({ id: 'crear', k: 'Google Calendar · Crear cita', v: '«' + ev.title + '» ' + diaTxt(d.day) + ' ' + hhmm(ev.s) + '–' + hhmm(ev.e), ms: 650, after: function () { events.push(ev); flashId = ev.id; offer = null; showDay(ev.day); } });
+  tools.push({ id: 'crear', k: 'Google Calendar · Crear cita', v: '«' + ev.title + '» ' + diaTxt(d.day) + ' ' + hhmm(ev.s) + '–' + hhmm(ev.e), ms: 650, after: function () { events.push(ev); var a = stored(); a.push({ id: ev.id, day: iso(ev.day), s: ev.s, e: ev.e, title: ev.title }); store(a); flashId = ev.id; offer = null; showDay(ev.day); } });
   ultima = ev; var resumen = d.serv.n + ' el ' + diaLargo(d.day) + ' a las ' + hhmm(d.hora);
   st.d = {}; st.paso = null;
   return { txt: '✅ ¡Listo, ' + esc(st.nombre) + '! Tienes <b>' + resumen + '</b>.\nEl día antes te mando un recordatorio. Si no puedes venir, escríbeme por aquí y la cancelo.\n<span class="ok">● Guardada en Google Calendar</span>', chips: [{ l: 'Quiero cancelarla', v: 'cancelar mi cita' }, { l: 'Gracias!' }] };
 }
 function pedirCancelar() {
+  if (!ultima || events.indexOf(ultima) === -1) { var ias = events.filter(function (e) { return e.kind === 'ia' && e.day >= TODAY; }); ultima = ias[ias.length - 1] || null; }
   if (!ultima || events.indexOf(ultima) === -1) { st.paso = null; return { txt: 'No veo ninguna cita tuya reservada desde este chat. Si la pediste por teléfono o por Booksy, cancélala por ahí o llama al local.', chips: START_CHIPS }; }
   st.paso = 'cancelar';
   return { txt: '¿Cancelo tu cita de <b>' + ultima.title.split(' — ')[0].toLowerCase() + '</b> del ' + diaLargo(ultima.day) + ' a las ' + hhmm(ultima.s) + '?', chips: [{ l: 'Sí, cancélala', v: 'si' }, { l: 'No, la mantengo', v: 'no' }] };
@@ -634,14 +646,14 @@ function pedirCancelar() {
 function cancelar(tools) {
   var ev = ultima; st.paso = null;
   tools.push({ id: 'ver', k: 'Google Calendar · Ver agenda', v: 'busca «' + ev.title + '»', ms: 480, after: function () { showDay(ev.day); } });
-  tools.push({ id: 'cancel', k: 'Google Calendar · Cancelar cita', v: 'borra el evento ' + ev.id + ' · ' + diaTxt(ev.day) + ' ' + hhmm(ev.s), ms: 520, after: function () { events.splice(events.indexOf(ev), 1); renderCal(); } });
+  tools.push({ id: 'cancel', k: 'Google Calendar · Cancelar cita', v: 'borra el evento ' + ev.id + ' · ' + diaTxt(ev.day) + ' ' + hhmm(ev.s), ms: 520, after: function () { events.splice(events.indexOf(ev), 1); store(stored().filter(function (r) { return r.id !== ev.id; })); renderCal(); } });
   ultima = null;
   return { txt: 'Hecho, cita cancelada. El hueco ya vuelve a estar libre para otro cliente. ¿Te busco otro día?', chips: [{ l: 'Sí, otro día', v: 'quiero cita' }, { l: 'No, gracias', v: 'no' }] };
 }
 
 /* ================= arranque ================= */
 $('form').addEventListener('submit', function (e) { e.preventDefault(); send($('txt').value); });
-$('reset').onclick = function () { if (!busy) reset(); };
+$('reset').onclick = function () { if (!busy) { store([]); reset(); } };
 reset();
 setInterval(function () { if (!busy) renderCal(); }, 60000);
 })();
