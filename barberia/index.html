@@ -185,6 +185,10 @@ table.hours tr.today td:first-child::after { content: "hoy"; margin-left: 10px; 
 
 footer.site { padding-block: 34px 120px; font-size: 14px; color: #6d6a63; border-top: 1px solid var(--line); }
 footer.site .wrap { display: flex; gap: 10px 24px; flex-wrap: wrap; justify-content: space-between; }
+.priv { flex-basis: 100%; max-width: 72ch; }
+.priv summary { cursor: pointer; color: #9b978e; text-decoration: underline; text-underline-offset: 3px; width: max-content; max-width: 100%; }
+.priv p { margin: 10px 0 0; font-size: 13.5px; line-height: 1.6; color: #8a867e; }
+.legal a { color: inherit; }
 
 /* ---------- widget de chat ---------- */
 .fab { position: fixed; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 40; display: flex; align-items: center; gap: 10px; background: linear-gradient(180deg, var(--gold-2), var(--gold)); color: #1a1406; border: 0; border-radius: 999px; padding: 15px 22px 15px 18px; font: 700 16px var(--f-body); cursor: pointer; box-shadow: 0 12px 40px #000c, 0 0 0 1px #ffffff40 inset, 0 0 40px #d4ae5a44; transition: transform .2s; }
@@ -192,7 +196,12 @@ footer.site .wrap { display: flex; gap: 10px 24px; flex-wrap: wrap; justify-cont
 .fab .dot { width: 10px; height: 10px; border-radius: 50%; background: #127a4c; box-shadow: 0 0 0 3px #127a4c33; }
 .fab-hint { position: fixed; right: 20px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); z-index: 40; background: var(--card-2); border: 1px solid var(--line); border-radius: 14px 14px 4px 14px; padding: 11px 15px; font-size: 15px; box-shadow: 0 14px 40px #000b; max-width: 260px; color: #e3ded4; animation: rise .5s 1s both cubic-bezier(.2,.7,.2,1); }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
-@media (max-width: 560px) { .fab-hint { display: none; } }
+@media (max-width: 560px) {
+  .fab-hint { display: none; }
+  /* en el móvil, mientras se ven los botones del titular, el botón flotante sobra y tapaba el «próximo hueco» */
+  .fab { transition: transform .25s, opacity .25s; }
+  body.hero-visible .fab { opacity: 0; transform: translateY(24px); pointer-events: none; }
+}
 .panel { position: fixed; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 50; width: min(392px, calc(100vw - 40px)); height: min(640px, calc(100vh - 110px)); background: #0c0e11; border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 30px 90px #000e, 0 0 60px #d4ae5a1a; display: flex; flex-direction: column; overflow: hidden; transform-origin: bottom right; animation: open .25s cubic-bezier(.2,.7,.2,1); }
 @keyframes open { from { opacity: 0; transform: scale(.9) translateY(14px); } }
 @media (max-width: 560px) { .panel { inset: 0; width: 100%; height: 100%; border-radius: 0; border: 0; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); } }
@@ -290,7 +299,7 @@ form.input button { border: 0; background: linear-gradient(180deg, var(--gold-2)
       <div>
         <div class="kicker">Reservar</div>
         <h2>Reserva <span class="o">por chat</span></h2>
-        <p class="lead">No es necesario registrarse ni descargar ninguna aplicación. El asistente consulta la disponibilidad de la agenda y confirma la cita al momento.</p>
+        <p class="lead">No es necesario registrarse ni descargar ninguna aplicación. El asistente consulta la disponibilidad de la agenda y confirma la cita al momento. También atiende por WhatsApp.</p>
         <ol class="steps">
           <li><h3>Indica el servicio y el día</h3><p>Por ejemplo: «un corte el viernes por la tarde».</p></li>
           <li><h3>Elige la hora</h3><p>El asistente muestra únicamente las horas disponibles.</p></li>
@@ -351,6 +360,10 @@ form.input button { border: 0; background: linear-gradient(180deg, var(--gold-2)
   <div class="wrap">
     <span>© Barbería El Faro · negocio ficticio para demostración</span>
     <span>Reservas atendidas por un asistente con IA</span>
+    <details class="priv" id="privacidad">
+      <summary>Privacidad de las reservas</summary>
+      <p>Responsable: Barbería El Faro (negocio ficticio de esta demo). Datos que se piden: nombre y móvil. Finalidad: gestionar la cita y enviar un recordatorio el día anterior. Base jurídica: la solicitud de cita. Conservación: hasta 12 meses después de la última cita. Los datos no se ceden a terceros; solo los tratan, por cuenta del local, los proveedores que alojan la agenda y envían los mensajes. Puedes pedir el acceso, la rectificación o la supresión de tus datos en el propio local.</p>
+    </details>
   </div>
 </footer>
 
@@ -369,13 +382,22 @@ form.input button { border: 0; background: linear-gradient(180deg, var(--gold-2)
     <input id="txt" placeholder="Escribe un mensaje…" aria-label="Mensaje">
     <button type="submit">Enviar</button>
   </form>
-  <div class="legal">Solo pedimos nombre y móvil para la cita.</div>
+  <div class="legal">Solo pedimos nombre y móvil para gestionar la cita. <a href="#privacidad" id="privLink">Privacidad</a></div>
 </section>
 
 <script>
 (function () {
 'use strict';
 /* ================= datos del negocio (ejemplo) ================= */
+// Todo lo que cambia de un negocio a otro está aquí: con otro NEG, HORARIO y SERV sale la demo de otro cliente.
+var NEG = {
+  nombre: 'Barbería El Faro',
+  direccion: 'C/ Major 10, Castelló',
+  comoLlegar: 'Hay zona azul en la misma calle y un aparcamiento público a 3 minutos.',
+  ejemplo: true,                 // añade «(dirección de ejemplo)» al dar la dirección
+  pago: 'tarjeta, Bizum y efectivo',
+  antelacion: 30                 // minutos mínimos para reservar en el mismo día
+};
 var HORARIO = { 2: [[570, 810], [960, 1200]], 3: [[570, 810], [960, 1200]], 4: [[570, 810], [960, 1200]], 5: [[570, 810], [960, 1200]], 6: [[540, 840]] };
 var SERV = [
   { id: 'fade',    n: 'Corte fade',       p: 16,   m: 30 },
@@ -403,21 +425,38 @@ function eur(p) { return (p % 1 ? p.toFixed(2).replace('.', ',') : p) + ' €'; 
 function diaTxt(d) { return DIAS[d.getDay()] + ' ' + d.getDate(); }
 function diaLargo(d) { return DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()]; }
 function cap(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+function plural(d) { return /s$/.test(d) ? d : d + 's'; }
+function unir(a, y) { return a.length > 1 ? a.slice(0, -1).join(', ') + (y || ' y ') + a[a.length - 1] : (a[0] || ''); }
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-function norm(t) { return t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[¿?¡!,;]/g, ' ').replace(/\s+/g, ' ').trim(); }
+function norm(t) { return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[¿?¡!,;]/g, ' ').replace(/\s+/g, ' ').trim(); }
 function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 function clock() { var d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
 function nowMin() { var d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+function telTxt(t) { return t.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3'); }
+function horarioTxt() {
+  var orden = [1, 2, 3, 4, 5, 6, 0], grupos = [], cerrados = [];
+  orden.forEach(function (dw, i) {
+    var tr = HORARIO[dw]; if (!tr) { cerrados.push(dw); return; }
+    var k = JSON.stringify(tr), g = grupos[grupos.length - 1];
+    if (g && g.k === k && g.fin === orden[i - 1]) g.fin = dw; else grupos.push({ k: k, ini: dw, fin: dw, tr: tr });
+  });
+  var partes = grupos.map(function (g) {
+    var dias = g.ini === g.fin ? 'los <b>' + plural(DIAS[g.ini]) + '</b>' : 'de <b>' + DIAS[g.ini] + ' a ' + DIAS[g.fin] + '</b>';
+    return dias + ', ' + g.tr.map(function (t) { return 'de ' + hhmm(t[0]) + ' a ' + hhmm(t[1]); }).join(' y ');
+  });
+  return 'Nuestro horario es ' + partes.join('; ') + '.' + (cerrados.length ? ' ' + cap(unir(cerrados.map(function (d) { return plural(DIAS[d]); }))) + ', cerrado.' : '');
+}
 
 var TODAY = midnight(new Date());
 var WEEK0 = monday(TODAY);
+var FIN = addDays(WEEK0, WEEKS * 7);   // primer día que ya no se puede reservar
 
 /* ================= agenda (Google Calendar simulado) ================= */
 var NOMBRES = ['Marcos', 'Hugo', 'Toni', 'Pablo', 'Álex', 'Iker', 'Jorge', 'Rubén', 'Nacho', 'Sergi', 'Vicent', 'Joan', 'Carlos', 'David', 'Raúl', 'Adrián', 'Pau', 'Óscar'];
 var CANALES = ['Booksy', 'Teléfono', 'Booksy', 'Instagram', 'Booksy', 'En el local'];
 // [hora, servicio | minutos, título del equipo]
 var PLANTILLA = {
-  2: [['9:30', 'corte'], ['10:30', 'combo'], ['12:00', 'barba'], ['17:00', 60, 'Médico (Dani)'], ['18:30', 'fade']],
+  2: [['9:30', 'corte'], ['10:30', 'combo'], ['12:00', 'barba'], ['17:00', 60, 'Médico'], ['18:30', 'fade']],
   3: [['9:30', 'fade'], ['11:00', 'color'], ['16:00', 'corte'], ['16:30', 'infantil'], ['19:00', 'combo']],
   4: [['10:00', 'fade'], ['10:30', 'barba'], ['12:30', 'corte'], ['17:30', 90, 'Formación'], ['19:30', 'barba']],
   5: [['9:30', 'fade'], ['10:00', 'fade'], ['11:15', 'corte'], ['16:00', 'combo'], ['17:00', 'fade'], ['18:00', 'corte'], ['19:15', 'barba']],
@@ -427,51 +466,59 @@ var events = [], seq = 0;
 // Las citas que mete el asistente se guardan en este navegador, así la web del cliente
 // y la demo por dentro (mismo dominio en GitHub Pages) ven la misma agenda.
 var KEY = 'faro-reservas-v1';
-function stored() { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } }
+function stored() { try { var a = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
 function store(a) { try { localStorage.setItem(KEY, JSON.stringify(a)); } catch (e) {} }
 function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-function fromIso(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+function fromIso(s) { var p = String(s).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
 function toMin(s) { var p = s.split(':'); return +p[0] * 60 + +p[1]; }
+function cabe(day, s, e) { return (HORARIO[day.getDay()] || []).some(function (t) { return s >= t[0] && e <= t[1]; }); }
+function dentroHorario(day, m) { return (HORARIO[day.getDay()] || []).some(function (t) { return m >= t[0] && m < t[1]; }); }
 function seed() {
   events = []; var k = 0;
+  var todas = stored(), guardadas = todas.filter(function (r) { return r && r.day && fromIso(r.day) >= TODAY && r.e > r.s; });
+  var abs = Math.round((WEEK0 - new Date(2024, 0, 1)) / 6048e5); // semanas desde un lunes fijo
   for (var w = 0; w < WEEKS; w++) {
     for (var dow = 2; dow <= 6; dow++) {
-      var day = addDays(WEEK0, w * 7 + dow - 1);
-      // semanas impares cambian martes por miércoles para que no se vean calcadas
-      var tpl = PLANTILLA[(w % 2 && (dow === 2 || dow === 3)) ? (dow === 2 ? 3 : 2) : dow];
+      var day = addDays(WEEK0, w * 7 + dow - 1), clave = iso(day);
+      // una semana sí y otra no se cambian martes y miércoles, para que no se vean calcadas
+      var tpl = PLANTILLA[((abs + w) % 2 && (dow === 2 || dow === 3)) ? (dow === 2 ? 3 : 2) : dow] || [];
       tpl.forEach(function (row, i) {
         if (w > 0 && (i + w) % 4 === 0) return; // semanas futuras, algo más vacías
-        var s = toMin(row[0]);
-        if (typeof row[1] === 'number') {
-          events.push({ id: 'e' + (++seq), day: day, s: s, e: s + row[1], title: row[2], kind: 'equipo' });
-        } else {
-          var sv = SV[row[1]], who = NOMBRES[k % NOMBRES.length], src = CANALES[k % CANALES.length]; k++;
-          events.push({ id: 'e' + (++seq), day: day, s: s, e: s + sv.m, title: sv.n + ' — ' + who, src: src, kind: 'canal' });
-        }
+        var s = toMin(row[0]), sv = typeof row[1] === 'number' ? null : (SV[row[1]] || SERV[k % SERV.length]), e = s + (sv ? sv.m : row[1]);
+        if (!cabe(day, s, e)) return;
+        // si el asistente ya reservó esa hora, la cita de ejemplo no se pinta encima
+        if (guardadas.some(function (r) { return r.day === clave && s < r.e && e > r.s; })) return;
+        if (!sv) { events.push({ id: 'e' + (++seq), day: day, s: s, e: e, title: row[2], kind: 'equipo' }); return; }
+        var who = NOMBRES[k % NOMBRES.length], src = CANALES[k % CANALES.length]; k++;
+        events.push({ id: 'e' + (++seq), day: day, s: s, e: e, title: sv.n + ' — ' + who, src: src, kind: 'canal' });
       });
     }
   }
-  stored().forEach(function (r) {
-    var day = fromIso(r.day);
-    if (day >= TODAY) events.push({ id: r.id, day: day, s: r.s, e: r.e, title: r.title, kind: 'ia', src: 'IA' });
-  });
+  guardadas.forEach(function (r) { events.push({ id: r.id, day: fromIso(r.day), s: r.s, e: r.e, title: r.title, sv: r.sv, kind: 'ia', src: 'IA' }); });
+  if (guardadas.length !== todas.length) store(guardadas); // se olvidan las citas ya pasadas
 }
 function dayEvents(day) { return events.filter(function (e) { return same(e.day, day); }).sort(function (a, b) { return a.s - b.s; }); }
 function isOpen(day) { return !!HORARIO[day.getDay()]; }
+function minimo(day) { return same(day, TODAY) ? nowMin() + NEG.antelacion : -1; }
+function libre(day, s, m) {
+  if (day < TODAY || day >= FIN || s < minimo(day) || !cabe(day, s, s + m)) return false;
+  return !dayEvents(day).some(function (e) { return s < e.e && s + m > e.s; });
+}
+function motivo(day, s, m) {
+  if (same(day, TODAY) && s < nowMin()) return 'esa hora ya ha pasado';
+  if (s < minimo(day)) return 'para hoy hay que reservar con al menos ' + NEG.antelacion + ' minutos de antelación';
+  if (!dentroHorario(day, s)) return 'a esa hora el local está cerrado';
+  if (!cabe(day, s, s + m)) return 'el servicio no termina antes del cierre';
+  return 'esa hora ya está reservada';
+}
 function freeSlots(day, m) {
-  var tr = HORARIO[day.getDay()]; if (!tr) return [];
-  var ev = dayEvents(day), out = [], min0 = same(day, TODAY) ? nowMin() + 30 : -1;
-  tr.forEach(function (t) {
-    for (var s = t[0]; s + m <= t[1]; s += 15) {
-      if (s < min0) continue;
-      var clash = ev.some(function (e) { return s < e.e && s + m > e.s; });
-      if (!clash) out.push(s);
-    }
-  });
+  var out = [];
+  (HORARIO[day.getDay()] || []).forEach(function (t) { for (var s = t[0]; s + m <= t[1]; s += 15) if (libre(day, s, m)) out.push(s); });
   return out;
 }
+function enFranja(s, pod) { return pod === 'manana' ? s < 840 : pod === 'tarde' ? s >= 900 : true; }
 function pickSpread(slots, pod) {
-  var f = slots.filter(function (s) { return pod === 'manana' ? s < 840 : pod === 'tarde' ? s >= 900 : true; });
+  var f = slots.filter(function (s) { return enFranja(s, pod); });
   if (!f.length) f = slots;
   var out = [];
   f.forEach(function (s) { if (out.length < 4 && (!out.length || s - out[out.length - 1] >= 45)) out.push(s); });
@@ -480,10 +527,15 @@ function pickSpread(slots, pod) {
 function nearest(slots, want) {
   return slots.slice().sort(function (a, b) { return Math.abs(a - want) - Math.abs(b - want); }).slice(0, 3).sort(function (a, b) { return a - b; });
 }
-function nextOpen(from, m) {
-  for (var i = 0; i < WEEKS * 7; i++) { var d = addDays(from, i); if (d < TODAY || d >= addDays(WEEK0, WEEKS * 7)) continue; if (isOpen(d) && freeSlots(d, m || 30).length) return d; }
-  return null;
+// Primer día con huecos desde `from`. Con franja, prefiere un día que tenga huecos en esa franja.
+function nextOpen(from, m, pod) {
+  var dias = [];
+  for (var d = from < TODAY ? TODAY : midnight(from); d < FIN; d = addDays(d, 1)) if (isOpen(d)) dias.push(d);
+  var conHueco = dias.filter(function (d) { return freeSlots(d, m || 30).length; });
+  if (pod) { var f = conHueco.filter(function (d) { return freeSlots(d, m || 30).some(function (s) { return enFranja(s, pod); }); }); if (f.length) return f[0]; }
+  return conHueco[0] || null;
 }
+function ultimoAbierto() { for (var d = addDays(FIN, -1); d >= TODAY; d = addDays(d, -1)) if (isOpen(d)) return d; return addDays(FIN, -1); }
 
 /* ================= sin calendario ni panel de n8n en la web del cliente ================= */
 var week = 0, offer = null, flashId = null;
@@ -494,6 +546,7 @@ async function runFlow(texto, tools) {
   for (var i = 0; i < tools.length; i++) { await sleep(300); if (tools[i].after) tools[i].after(); }
 }
 function toolVer() { return { id: 'ver' }; }
+function recordatorio() {}
 
 /* ================= chat: pintado ================= */
 var busy = false;
@@ -517,64 +570,122 @@ function chips(arr) {
 var START_CHIPS = [{ l: 'Quiero un fade el viernes por la tarde' }, { l: '¿Cuánto vale corte y barba?' }, { l: '¿Tenéis hueco mañana a las 10?' }, { l: '¿Dónde estáis?' }];
 
 /* ================= entender el mensaje ================= */
+// El orden importa: lo infantil y las cejas antes que el corte; «corte» + «barba» en la misma frase es el combo.
 var MAPA_SERV = [
-  ['combo', ['corte y barba', 'corte + barba', 'corte mas barba', 'pelo y barba', 'fade y barba', 'fade + barba', 'barba y corte', 'combo', 'las dos cosas']],
-  ['infantil', ['nino', 'nina', 'hijo', 'hija', 'infantil', 'peque', 'crio', 'chaval']],
-  ['fade', ['fade', 'degradado', 'desvanecido']],
-  ['color', ['tinte', 'color', 'canas', 'mechas']],
-  ['cejas', ['ceja']],
-  ['barba', ['barba', 'afeitar', 'afeitado', 'perfilar']],
-  ['corte', ['corte', 'cortar', 'pelar', 'pelo', 'clasico']]
+  ['infantil', /\b(nin[oa]s?|hij[oa]s?|infantil|peques?|crios?|chaval\w*)\b/],
+  ['cejas', /\bcejas?\b/],
+  ['color', /\b(tinte|tintar|tenir\w*|color|canas|mechas)\b/],
+  ['fade', /\b(fade|degradad\w*|desvanecid\w*)\b/],
+  ['barba', /\b(barbas?|afeit\w*|perfilar)\b/],
+  ['corte', /\b(corte|cortar\w*|pelar\w*|pelo|clasico)\b/],
+  ['combo', /\b(combo|las dos cosas)\b/]
 ];
-function findServ(n) { for (var i = 0; i < MAPA_SERV.length; i++) for (var j = 0; j < MAPA_SERV[i][1].length; j++) if (n.indexOf(MAPA_SERV[i][1][j]) !== -1) return SV[MAPA_SERV[i][0]]; return null; }
+function findServ(n) {
+  var hit = {}; MAPA_SERV.forEach(function (x) { if (x[1].test(n)) hit[x[0]] = true; });
+  if (SV.combo && (hit.combo || ((hit.corte || hit.fade) && hit.barba))) return SV.combo;
+  for (var i = 0; i < MAPA_SERV.length; i++) if (hit[MAPA_SERV[i][0]] && SV[MAPA_SERV[i][0]]) return SV[MAPA_SERV[i][0]];
+  for (var j = 0; j < SERV.length; j++) if (n.indexOf(norm(SERV[j].n)) !== -1) return SERV[j];
+  return null;
+}
+// Palabras que nunca forman parte de un nombre, y partículas que solo valen en medio («María de la O»).
+var STOP = ' quiero queria quisiera tengo cita citas hora horas dia dias nuevo nueva cliente habitual yo tu el un una uno mi con para por que a al en hoy manana tarde si no vale gracias hola buenas otro otra mejor cambiar cancelar reservar reserva pedir hueco ok perfecto claro genial bien puedo puede soy llamo nombre es se lo le me te ';
+var PARTICULAS = ' de del la las los y e ';
+function nombreBonito(w) {
+  while (w.length && PARTICULAS.indexOf(' ' + norm(w[w.length - 1]) + ' ') !== -1) w.pop();
+  if (!w.length || PARTICULAS.indexOf(' ' + norm(w[0]) + ' ') !== -1) return null;
+  return w.map(function (x, i) { return i && PARTICULAS.indexOf(' ' + norm(x) + ' ') !== -1 ? x.toLowerCase() : cap(x.toLowerCase()); }).join(' ');
+}
+var LETRAS = /^[a-záéíóúñüçàèòï'-]+$/i;
+// Nombre escrito tras «me llamo», «soy» o «mi nombre es» dentro de una frase más larga.
+function nombreEnFrase(raw) {
+  var m = raw.match(/(?:^|[^a-záéíóúñü])(?:me llamo|mi nombre es|soy)\s+([^\d,.;:!?¿¡()]+)/i); if (!m) return null;
+  var w = m[1].trim().split(/\s+/), out = [];
+  for (var i = 0; i < w.length && out.length < 3; i++) { if (!LETRAS.test(w[i]) || STOP.indexOf(' ' + norm(w[i]) + ' ') !== -1) break; out.push(w[i]); }
+  return nombreBonito(out);
+}
+// Respuesta a «¿a nombre de quién?»: el mensaje entero es el nombre.
+function nombreSuelto(raw) {
+  var w = raw.replace(/^\s*(hola|buenas)[,\s]+/i, '').replace(/^\s*(soy|me llamo|mi nombre es|a nombre de)\s+/i, '').replace(/[\d+().,;:!?¿¡"]/g, ' ').trim().split(/\s+/).filter(Boolean);
+  if (!w.length || w.length > 4) return null;
+  for (var i = 0; i < w.length; i++) if (!LETRAS.test(w[i]) || STOP.indexOf(' ' + norm(w[i]) + ' ') !== -1) return null;
+  return nombreBonito(w);
+}
+function fecha(d, mo) {
+  if (mo < 0 || mo > 11 || d < 1) return null;
+  var x = new Date(TODAY.getFullYear(), mo, d); if (x.getMonth() !== mo) return null;
+  // una fecha de hace pocas semanas es un error («ya ha pasado»); una de hace meses es del año que viene
+  if (x < TODAY && TODAY - x > 60 * 864e5) x = new Date(TODAY.getFullYear() + 1, mo, d);
+  return midnight(x);
+}
+function diaDelMes(dd) {
+  for (var k = 0; k < 3; k++) { var x = new Date(TODAY.getFullYear(), TODAY.getMonth() + k, dd); if (x.getDate() === dd && x >= TODAY) return midnight(x); }
+  return null;
+}
+function horaDe(h, mi, pod) { if (h <= 8 || (pod === 'tarde' && h < 12)) h += 12; return h * 60 + mi; }
 function parse(raw) {
-  var n = ' ' + norm(raw) + ' ', r = { serv: findServ(n) };
-  if (/(por|de|a) la tarde|tarde/.test(n)) r.pod = 'tarde';
-  if (/(por|de|a) la manana/.test(n)) { r.pod = 'manana'; n = n.replace(/(por|de|a) la manana/g, ' '); }
+  var r = {}, m;
+  // el móvil sale primero, para que sus cifras no se lean como fecha u hora
+  if ((m = raw.match(/(?:^|[^\d+])(?:\+?34[\s.-]?)?([6789](?:[\s.-]?\d){8})(?!\d)/))) { r.tel = m[1].replace(/\D/g, ''); raw = raw.replace(m[0], ' '); }
+  r.nombre = nombreEnFrase(raw);
+  var n = ' ' + norm(raw) + ' ';
+  r.saludo = /\b(hola|buenas|buenos dias|hey|ey)\b/.test(n);
+  n = n.replace(/\b(buenas tardes|buenas noches|buenos dias|buenas)\b/g, ' ');
+  r.serv = findServ(n);
+  r.cancel = /\b(cancel\w*|anul\w*|no (puedo|podre|voy a poder) ir)\b/.test(n);
+  r.cambio = /\b(cambiar|mover|modificar|aplazar|retrasar|adelantar) (mi |la |de )?(cita|reserva)\b/.test(n);
+  if (/\b(por|de|a) la tarde\b|\btarde\b/.test(n)) r.pod = 'tarde';
+  if (/\b(por|de|a) la manana\b/.test(n)) { r.pod = 'manana'; n = n.replace(/\b(por|de|a) la manana\b/g, ' '); }
   // día
-  var m;
-  if (/pasado manana/.test(n)) { r.day = addDays(TODAY, 2); n = n.replace('pasado manana', ' '); }
-  else if (/\bmanana\b/.test(n)) { r.day = addDays(TODAY, 1); }
-  else if (/\bhoy\b/.test(n)) { r.day = TODAY; }
+  if (/\bpasado manana\b/.test(n)) { r.day = addDays(TODAY, 2); n = n.replace(/\bpasado manana\b/g, ' '); }
+  else if (/\bmanana\b/.test(n)) r.day = addDays(TODAY, 1);
+  else if (/\bhoy\b/.test(n)) r.day = TODAY;
   var dn = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-  if (!r.day) for (var i = 0; i < 7; i++) if (n.indexOf(' ' + dn[i]) !== -1) { var add = (i - TODAY.getDay() + 7) % 7; if (/(que viene|proximo|siguiente)/.test(n) && add === 0) add = 7; r.day = addDays(TODAY, add); if (/semana que viene|proxima semana/.test(n) && add < 7 && addDays(TODAY, add) < addDays(WEEK0, 7)) r.day = addDays(r.day, 7); break; }
-  if ((m = n.match(/\b(\d{1,2})\s*[\/\-]\s*(\d{1,2})\b/))) { r.day = fecha(+m[1], +m[2] - 1); n = n.replace(m[0], ' '); }
-  else if ((m = n.match(/\b(\d{1,2}) de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)/))) { r.day = fecha(+m[1], MESES.indexOf(m[2])); n = n.replace(m[0], ' '); }
-  else if (!r.day && (m = n.match(/\bel (dia )?(\d{1,2})\b(?! y)/))) { var dd = +m[2], cand = new Date(TODAY.getFullYear(), TODAY.getMonth(), dd); if (cand < TODAY) cand = new Date(TODAY.getFullYear(), TODAY.getMonth() + 1, dd); r.day = midnight(cand); n = n.replace(m[0], ' '); }
-  // teléfono (antes que la hora para que no se confundan los números)
-  var digits = raw.replace(/[^\d+]/g, '');
-  if ((m = digits.match(/(?:\+?34)?([6789]\d{8})$/))) r.tel = m[1];
-  else if (raw.replace(/\D/g, '').length >= 6 && raw.replace(/\D/g, '').length <= 12 && !/[:h.]\d{2}\b/.test(raw)) r.telMal = true;
-  if (!r.tel && !r.telMal) {
-    var h = null, mi = 0;
-    if ((m = n.match(/\b(\d{1,2})\s*[:h\.]\s*(\d{2})\b/))) { h = +m[1]; mi = +m[2]; }
-    else if ((m = n.match(/\b(?:a las|sobre las|las|a la) (\d{1,2})( y media| y cuarto| menos cuarto)?\b/))) { h = +m[1]; mi = m[2] === ' y media' ? 30 : m[2] === ' y cuarto' ? 15 : m[2] === ' menos cuarto' ? -15 : 0; }
-    else if ((m = n.match(/^\s*(\d{1,2})\s*$/))) { h = +m[1]; }
-    if (h !== null && h <= 23) { if (h <= 8 || (r.pod === 'tarde' && h < 12)) h += 12; r.hora = h * 60 + mi; }
+  if (!r.day) for (var i = 0; i < 7; i++) if (new RegExp('\\b' + dn[i] + 's?\\b').test(n)) {
+    var add = (i - TODAY.getDay() + 7) % 7, prox = /\b(que viene|proximo|siguiente)\b/.test(n);
+    if (prox && add === 0) add = 7;
+    r.day = addDays(TODAY, add); r.diaSemana = !prox;
+    if (/semana que viene|proxima semana/.test(n) && r.day < addDays(WEEK0, 7)) r.day = addDays(r.day, 7);
+    break;
   }
-  if ((m = raw.match(/(?:me llamo|soy|mi nombre es)\s+([A-Za-zÁÉÍÓÚÑáéíóúñü]+(?:\s+[A-Za-zÁÉÍÓÚÑáéíóúñü]+)?)/i))) r.nombre = cap(m[1].toLowerCase()).replace(/\s(\w)/, function (x) { return x.toUpperCase(); });
+  if ((m = n.match(/\b(\d{1,2})\s*[\/\-]\s*(\d{1,2})\b/))) { r.day = fecha(+m[1], +m[2] - 1); r.diaSemana = false; r.fechaMal = !r.day; n = n.replace(m[0], ' '); }
+  else if ((m = n.match(/\b(\d{1,2}) de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/))) { r.day = fecha(+m[1], MESES.indexOf(m[2])); r.diaSemana = false; r.fechaMal = !r.day; n = n.replace(m[0], ' '); }
+  else if (!r.day && (m = n.match(/\b(?:el (?:dia )?|dia )(\d{1,2})\b(?! ?(?:y |:|h\b|de la))/))) { r.day = diaDelMes(+m[1]); r.fechaMal = !r.day; n = n.replace(m[0], ' '); }
+  if (!r.day && /\b(semana que viene|proxima semana)\b/.test(n)) r.semana = true;
+  r.asap = /\b(lo antes posible|cuanto antes|primer hueco|lo primero que \w+|cuando sea|lo mas pronto|me da igual el dia|cualquier dia|el primer dia)\b/.test(n);
+  // hora
+  var h = null, mi = 0;
+  if ((m = n.match(/\b(\d{1,2})\s*[:h.]\s*(\d{2})\b/))) { h = +m[1]; mi = +m[2]; }
+  else if ((m = n.match(/\b(?:a las|sobre las|hacia las|para las|las|a la|sobre la) (\d{1,2})(?:\s*h)?( y media| y cuarto| menos cuarto)?\b/)) ||
+           (m = n.match(/\b(\d{1,2})( y media| y cuarto| menos cuarto)? de la (?:tarde|manana)\b/))) { h = +m[1]; mi = m[2] === ' y media' ? 30 : m[2] === ' y cuarto' ? 15 : m[2] === ' menos cuarto' ? -15 : 0; }
+  else if ((m = n.match(/\b(\d{1,2})\s*(?:h|horas)\b/))) h = +m[1];
+  else if ((m = n.match(/^\s*(\d{1,2})\s*$/))) r.bare = +m[1];
+  if (h !== null && h <= 23 && mi < 60) { r.hora = horaDe(h, mi, r.pod); if (r.hora >= 1440) delete r.hora; }
+  if ((m = n.match(/\b(primera|primero|segunda|segundo|tercera|tercero|cuarta|ultima|ultimo)\b/))) r.ord = { primera: 0, primero: 0, segunda: 1, segundo: 1, tercera: 2, tercero: 2, cuarta: 3, ultima: -1, ultimo: -1 }[m[1]];
   r.n = n;
   return r;
 }
-function fecha(d, mo) { var x = new Date(TODAY.getFullYear(), mo, d); if (x < TODAY) x = new Date(TODAY.getFullYear() + 1, mo, d); return midnight(x); }
-function has(n, re) { return re.test(n); }
+function esSi(n) { return !/\b(no|nop|nah)\b/.test(n) && /\b(si|sip|vale|ok|okey|okay|perfecto|dale|de acuerdo|genial|claro|venga|adelante|correcto|eso es|confirm\w*|hecho|guay|reservala|reservalo)\b/.test(n); }
+function esNo(n) { return /\b(no|nop|nah)\b/.test(n); }
+function esPregunta(n) { return /\b(precio|precios|cuanto|horario|donde|direccion|bizum|tarjeta|pagar|abr[ei]s|aparc\w*)\b/.test(n); }
 
 /* ================= la conversación ================= */
 var st, ultima = null;
 function reset() {
-  st = { paso: null, d: {}, nombre: null, tel: null }; ultima = null; offer = null; seq = 0;
+  st = { paso: null, d: {}, nombre: null, tel: null, reprog: false }; ultima = null; offer = null; seq = 0;
   seed();
   $('log').innerHTML = '';
-  push('Hola, soy el asistente de reservas de <b>Barbería El Faro</b>.\n¿Qué servicio te gustaría reservar?', 'bot');
+  push('Hola, soy el asistente de reservas de <b>' + esc(NEG.nombre) + '</b>.\n¿Qué servicio te gustaría reservar?', 'bot');
   chips(START_CHIPS);
 }
 
 async function send(text, label) {
-  text = String(text || '').trim(); if (!text || busy) return;
+  text = String(text || '').trim().slice(0, 300); if (!text || busy) return;
   busy = true; chips([]); push(esc(label || text), 'me'); $('txt').value = '';
-  var tools = [], out = await think(text, tools);
+  var tools = [], out;
+  try { out = await think(text, tools); }
+  catch (e) { console.error(e); tools = []; st.paso = null; out = { txt: 'Ha habido un problema al procesar tu mensaje. ¿Puedes repetirlo?', chips: START_CHIPS }; }
   typing(true);
-  await runFlow(label || text, tools);
+  try { await runFlow(label || text, tools); } catch (e) { console.error(e); }
   typing(false);
   push(out.txt, 'bot'); chips(out.chips);
   busy = false;
@@ -583,141 +694,204 @@ async function send(text, label) {
 /* Decide la respuesta. Las herramientas se añaden a `tools` para que n8n las "ejecute". */
 async function think(text, tools) {
   var p = parse(text), n = p.n, d = st.d;
-  if (p.nombre) st.nombre = p.nombre;
+  var dato = !!(p.serv || p.day || p.hora != null || p.asap || p.semana || p.pod);
 
-  // pasos que esperan un dato concreto
-  if (st.paso === 'confirmar') {
-    if (/\b(si|vale|ok|okey|confirmo|confirmar|perfecto|dale|de acuerdo|genial|claro|venga)\b/.test(n)) return reservar(tools);
-    if (/\b(no|cambiar|otra)\b/.test(n)) { d.hora = null; d.ok = false; st.paso = null; return preguntarHora(tools, 'De acuerdo. ¿Qué hora prefieres?'); }
+  if (d.serv && /\b(otro dia|otra fecha|cambiar (el|de) dia)\b/.test(n) && !p.day) return otroDia(tools);
+
+  // pasos que esperan una respuesta concreta
+  if (st.paso === 'confirmar' && !dato) {
+    if (esNo(n)) { d.hora = null; d.ok = false; return preguntarHora(tools, 'De acuerdo.\n'); }
+    if (esSi(n)) return reservar(tools);
   }
   if (st.paso === 'cancelar') {
-    if (/\b(si|vale|ok|confirmo|dale|claro|venga)\b/.test(n)) return cancelar(tools);
-    st.paso = null; return { txt: 'De acuerdo, la cita se mantiene.', chips: START_CHIPS };
+    st.paso = null;
+    if (esNo(n)) { st.reprog = false; return { txt: 'De acuerdo, la cita se mantiene.', chips: START_CHIPS }; }
+    if (esSi(n)) return cancelar(tools);
+    st.reprog = false;
   }
-  if (st.paso === 'nombre' && !esPregunta(n) && !p.serv && !p.day) {
-    st.nombre = p.nombre || cap(text.replace(/^(soy|me llamo)\s+/i, '').split(/\s+/).slice(0, 2).join(' ').toLowerCase()).replace(/\s(\S)/, function (x) { return x.toUpperCase(); });
-    st.paso = null; return siguiente(tools);
+  if (st.paso === 'nombre' && !p.cancel && !p.cambio && !esPregunta(n) && !p.day && p.hora == null && !p.asap && !p.semana) {
+    var nom = p.nombre || nombreSuelto(text);
+    if (p.tel) st.tel = p.tel;
+    if (nom) { st.nombre = nom; st.paso = null; return siguiente(tools); }
+    if (!dato) return { txt: 'Indica el nombre para la reserva, por favor.', chips: [] };
   }
-  if (st.paso === 'tel' && !esPregunta(n)) {
+  if (st.paso === 'tel' && !dato && !p.cancel && !p.cambio && !esPregunta(n)) {
+    if (p.nombre) st.nombre = p.nombre;
     if (p.tel) { st.tel = p.tel; st.paso = null; return siguiente(tools); }
+    if (esNo(n)) return { txt: 'El móvil es necesario para confirmar la cita y enviarte el recordatorio. Solo se usa para eso.', chips: [] };
     return { txt: 'El número no parece válido. Indica un móvil de 9 cifras, por ejemplo 612 345 678.', chips: [] };
   }
+  if (p.nombre) st.nombre = p.nombre;
+  if (p.tel) st.tel = p.tel;
 
-  if (/otro dia|otra fecha|cambiar de dia/.test(n) && st.d.serv) { st.d.day = null; st.d.hora = null; st.d.ok = false; offer = null; renderCal(); return siguiente(tools); }
+  // «la primera», «cualquiera» o un número suelto, según lo que se acaba de preguntar
+  if (st.paso === 'hora' && offer && offer.slots.length && p.hora == null && !p.day) {
+    if (p.ord != null) p.hora = p.ord === -1 ? offer.slots[offer.slots.length - 1] : offer.slots[p.ord];
+    else if (/\b(cualquiera|la que sea|me da igual|la que quieras|la que tengas)\b/.test(n)) p.hora = offer.slots[0];
+    if (p.hora == null) delete p.hora; else dato = true;
+  }
+  if (p.bare != null && p.hora == null && !p.day) {
+    if (st.paso === 'day') p.day = diaDelMes(p.bare); else if (p.bare <= 23) p.hora = horaDe(p.bare, 0, p.pod);
+    dato = dato || !!p.day || p.hora != null;
+  }
 
   // preguntas sueltas
-  if (has(n, /cancel|anular|no (puedo|podre) ir/)) return pedirCancelar();
-  if (has(n, /precio|cuanto (vale|cuesta|es|sale)|tarifa|que vale/)) {
-    var r = p.serv ? 'El servicio <b>' + p.serv.n.toLowerCase() + '</b> cuesta <b>' + eur(p.serv.p) + '</b> (' + p.serv.m + ' min).' :
+  if (p.cambio) return pedirCancelar(true);
+  if (p.cancel) return pedirCancelar(false);
+  if (/\b(precio|precios|cuanto (vale|valen|cuesta|cuestan|es|sale|cobrais)|tarifa|tarifas|que vale|que cuesta)\b/.test(n)) {
+    var sv = p.serv, r = sv ? 'El servicio <b>' + sv.n.toLowerCase() + '</b> cuesta <b>' + eur(sv.p) + '</b> (' + sv.m + ' min).' :
       'Estos son nuestros precios:\n' + SERV.map(function (s) { return '· ' + s.n + ' — ' + eur(s.p); }).join('\n');
-    if (p.serv && !st.paso) d.serv = p.serv;
-    return { txt: r + (p.serv ? '\n¿Quieres reservar cita?' : '\n¿Qué servicio te interesa?'), chips: p.serv ? [{ l: 'Sí, reservar', v: 'quiero cita' }, { l: 'No, gracias', v: 'no' }] : SERV.slice(0, 4).map(function (s) { return { l: s.n, v: 'quiero ' + s.n.toLowerCase() }; }) };
+    if (st.paso) return reanudar(r, tools);
+    if (sv) { d.serv = sv; return { txt: r + '\n¿Quieres reservar cita?', chips: [{ l: 'Sí, reservar', v: 'quiero cita' }, { l: 'No, gracias', v: 'no' }] }; }
+    return { txt: r + '\n¿Qué servicio te interesa?', chips: servChips(4) };
   }
-  if (has(n, /horario|a que hora (abr|cerr)|abris|cerrais|abierto|abren|cierran/)) return { txt: 'Nuestro horario es de <b>martes a viernes</b>, de 9:30 a 13:30 y de 16:00 a 20:00, y los <b>sábados</b>, de 9:00 a 14:00. Domingos y lunes, cerrado.', chips: [{ l: 'Pedir cita', v: 'quiero cita' }] };
-  if (has(n, /donde|direccion|como llego|aparca|ubicacion/)) return { txt: 'Estamos en <b>C/ Major 10, Castelló</b> (dirección de ejemplo). Hay zona azul en la misma calle y un aparcamiento público a 3 minutos.', chips: [{ l: 'Pedir cita', v: 'quiero cita' }] };
-  if (has(n, /bizum|tarjeta|pagar|efectivo/)) return reanudar('Aceptamos tarjeta, Bizum y efectivo.', tools);
-  if (has(n, /extension|keratina|alisado|depila|manicura|unas/)) return reanudar('Ese servicio no lo ofrecemos. Para consultas sobre servicios que no aparecen en la carta, puedes llamar al local.', tools);
-  if (has(n, /\b(gracias|grax|genial|perfecto)\b/) && !st.paso && !p.serv && !p.day && p.hora == null) return { txt: 'Gracias a ti. Quedamos a tu disposición.', chips: [] };
-  if (has(n, /^\s*(no|de momento no|nada)\s*$/)) { st.paso = null; return { txt: 'De acuerdo. Puedes escribirnos cuando lo necesites.', chips: START_CHIPS }; }
+  if (/\b(horario|horarios|a que hora (abr|cierr)\w*|abr[ei]s|cerrais|abiert[oa]s?|abren|cierran)\b/.test(n)) return reanudar(horarioTxt(), tools);
+  if (/\b(donde|direccion|como llego|aparc\w*|ubicacion|ubicad[oa]s)\b/.test(n)) return reanudar('Estamos en <b>' + esc(NEG.direccion) + '</b>' + (NEG.ejemplo ? ' (dirección de ejemplo)' : '') + '. ' + NEG.comoLlegar, tools);
+  if (/\b(bizum|tarjeta|pagar|pago|efectivo)\b/.test(n)) return reanudar('Aceptamos ' + NEG.pago + '.', tools);
+  if (!p.serv && (/\b(extensiones|keratina|alisado|depilacion|manicura|pedicura|masaje|permanente)\b/.test(n) || /uñas/i.test(text))) return reanudar('Ese servicio no lo ofrecemos. Para consultas sobre servicios que no aparecen en la carta, puedes llamar al local.', tools);
+  if (p.fechaMal && !p.day) { st.paso = d.serv ? 'day' : st.paso; return { txt: 'No reconozco esa fecha. ¿Qué día prefieres?', chips: d.serv ? diasChips(d.serv.m) : [] }; }
+  if (!st.paso && !dato && /^\s*(muchas )?(gracias|grax|genial|perfecto|estupendo|de acuerdo)( gracias)?\s*$/.test(n)) return { txt: 'Gracias a ti. Si necesitas algo más, escríbenos.', chips: [] };
+  if (!dato && /^\s*(no|nop|nah|no gracias|de momento no|ahora no|mejor no|nada|dejalo|da igual)\s*$/.test(n)) { st.paso = null; st.d = {}; offer = null; renderCal(); return { txt: 'De acuerdo. Puedes escribirnos cuando lo necesites.', chips: START_CHIPS }; }
 
   // reserva: rellenar lo que haya dicho
-  var quiere = p.serv || p.day || p.hora != null || has(n, /cita|reserv|hueco|turno|pedir|quiero|tienes|teneis|libre|puedo ir|me pasas/);
-  if (!quiere && !st.paso) {
-    if (has(n, /^\s*(hola|buenas|hey|ey|buenos dias|buenas tardes)\b/)) return { txt: 'Hola. ¿Quieres reservar una cita o tienes alguna consulta?', chips: START_CHIPS };
-    return { txt: 'No he entendido tu mensaje. Puedo ayudarte a reservar o cancelar una cita, o informarte de precios y horario.', chips: START_CHIPS };
+  var quiere = dato || /\b(cita|reserv\w*|hueco|huecos|turno|pedir|quiero|queria|quisiera|tienes|teneis|tiene|libre|puedo ir|me pasas|disponib\w*|apunta\w*)\b/.test(n);
+  if (!quiere) {
+    if (st.paso) { var rr = siguiente(tools); rr.txt = 'Disculpa, no te he entendido.\n' + rr.txt; return rr; }
+    if (p.saludo) return { txt: 'Hola. ¿Quieres reservar una cita o tienes alguna consulta?', chips: START_CHIPS };
+    return { txt: 'No he entendido tu mensaje. Puedo ayudarte a reservar, cambiar o cancelar una cita, o informarte de precios y horario.', chips: START_CHIPS };
   }
-  if (p.serv) d.serv = p.serv;
-  if (p.day) { d.day = p.day; d.hora = null; d.ok = false; }
-  if (p.pod) d.pod = p.pod;
+  if (p.serv) { if (d.serv !== p.serv) d.ok = false; d.serv = p.serv; }
+  if (p.asap) { d.asap = true; d.semana = false; d.day = null; d.hora = null; d.ok = false; }
+  if (p.semana) { d.semana = true; d.asap = false; d.day = null; d.hora = null; d.ok = false; }
+  if (p.day) { d.day = p.day; d.diaSemana = !!p.diaSemana; d.asap = d.semana = false; d.ok = false; if (p.hora == null) d.hora = null; }
+  if (p.pod) { d.pod = p.pod; if (p.hora == null && !p.day && d.hora != null && !enFranja(d.hora, p.pod)) { d.hora = null; d.ok = false; } }
   if (p.hora != null) { d.hora = p.hora; d.ok = false; }
-  if (p.tel) st.tel = p.tel;
   return siguiente(tools);
 }
-function esPregunta(n) { return /precio|cuanto|horario|donde|bizum|tarjeta|cancel|abr[ei]s|aparca/.test(n); }
 function reanudar(txt, tools) {
   if (!st.paso && !st.d.serv) return { txt: txt, chips: [{ l: 'Pedir cita', v: 'quiero cita' }] };
   var r = siguiente(tools); r.txt = txt + '\n\n' + r.txt; return r;
 }
+function servChips(k) { return SERV.slice(0, k || 5).map(function (s) { return { l: s.n + ' · ' + eur(s.p), v: 'quiero ' + s.n.toLowerCase() }; }); }
+function diasChips(m) {
+  var ch = [];
+  for (var i = 0; i < 21 && ch.length < 4; i++) { var x = addDays(TODAY, i); if (x < FIN && freeSlots(x, m).length) ch.push({ l: cap(i === 0 ? 'hoy' : i === 1 ? 'mañana' : diaTxt(x)), v: 'el ' + x.getDate() + '/' + (x.getMonth() + 1) }); }
+  return ch;
+}
+function otroDia(tools) { var d = st.d; d.day = null; d.hora = null; d.ok = false; d.asap = d.semana = false; offer = null; renderCal(); return siguiente(tools); }
+function sinHuecos(pre) { st.d.day = null; st.paso = null; return { txt: (pre || '') + 'No queda disponibilidad en las próximas semanas. Te recomendamos llamar al local.', chips: [] }; }
 
 function siguiente(tools) {
-  var d = st.d;
-  if (!d.serv) { st.paso = 'serv'; return { txt: '¿Qué servicio te gustaría reservar?', chips: SERV.slice(0, 5).map(function (s) { return { l: s.n + ' · ' + eur(s.p), v: 'quiero ' + s.n.toLowerCase() }; }) }; }
-  if (!d.day) {
-    st.paso = 'day'; var ch = [], x = TODAY;
-    for (var i = 0; i < 14 && ch.length < 4; i++) { x = addDays(TODAY, i); if (isOpen(x) && freeSlots(x, d.serv.m).length) ch.push({ l: cap(i === 0 ? 'hoy' : i === 1 ? 'mañana' : diaTxt(x)), v: 'el ' + x.getDate() + '/' + (x.getMonth() + 1) }); }
-    return { txt: 'Servicio: <b>' + d.serv.n.toLowerCase() + '</b> (' + eur(d.serv.p) + ', ' + d.serv.m + ' min). ¿Qué día prefieres?', chips: ch };
+  var d = st.d, pre = '';
+  if (!d.serv) { st.paso = 'serv'; return { txt: '¿Qué servicio te gustaría reservar?', chips: servChips() }; }
+  var m = d.serv.m;
+  if (!d.day && (d.asap || d.semana)) {
+    var primero = nextOpen(d.asap ? TODAY : addDays(WEEK0, 7), m, d.pod);
+    d.asap = d.semana = false;
+    if (!primero) return sinHuecos();
+    d.day = primero; d.diaSemana = false;
   }
-  if (d.day < TODAY) { d.day = null; return { txt: 'Esa fecha ya ha pasado. ¿Qué día prefieres?', chips: [] }; }
-  if (d.day >= addDays(WEEK0, WEEKS * 7)) { d.day = null; return { txt: 'La agenda está abierta hasta el ' + diaLargo(addDays(WEEK0, WEEKS * 7 - 2)) + '. ¿Te viene bien algún día anterior?', chips: [] }; }
+  if (!d.day) { st.paso = 'day'; return { txt: 'Servicio: <b>' + d.serv.n.toLowerCase() + '</b> (' + eur(d.serv.p) + ', ' + m + ' min). ¿Qué día prefieres?', chips: diasChips(m) }; }
+  if (d.day < TODAY) { d.day = null; st.paso = 'day'; return { txt: 'Esa fecha ya ha pasado. ¿Qué día prefieres?', chips: diasChips(m) }; }
+  if (d.day >= FIN) { d.day = null; st.paso = 'day'; return { txt: 'La agenda está abierta hasta el ' + diaLargo(ultimoAbierto()) + '. ¿Te viene bien algún día anterior?', chips: diasChips(m) }; }
+  // «el viernes» dicho un viernes en el que ya no quedan huecos: se entiende el de la semana siguiente
+  if (d.diaSemana && same(d.day, TODAY) && !freeSlots(TODAY, m).some(function (s) { return enFranja(s, d.pod); }) && addDays(TODAY, 7) < FIN) d.day = addDays(TODAY, 7);
+  d.diaSemana = false;
   if (!isOpen(d.day)) {
-    var alt = nextOpen(d.day, d.serv.m), dia = DIAS[d.day.getDay()]; dia = /s$/.test(dia) ? dia : dia + 's';
-    if (!alt) { d.day = null; return { txt: 'Los ' + dia + ' el local está cerrado y no queda disponibilidad en las próximas semanas. Te recomendamos llamar al local.', chips: [] }; }
+    var cerrado = plural(DIAS[d.day.getDay()]), alt = nextOpen(d.day, m, d.pod);
+    if (!alt) return sinHuecos('Los ' + cerrado + ' el local está cerrado. ');
+    pre = 'Los ' + cerrado + ' el local está cerrado. ';
     d.day = alt;
-    tools.push(toolVer(alt, d.serv.m));
-    var sl = pickSpread(freeSlots(alt, d.serv.m), d.pod); offer = { day: alt, slots: sl, m: d.serv.m };
-    st.paso = 'hora';
-    return { txt: 'Los ' + dia + ' el local está cerrado. El <b>' + diaTxt(alt) + '</b> hay disponibilidad a las ' + lista(sl) + '. ¿Cuál prefieres?', chips: horaChips(sl) };
   }
-  if (d.hora == null) return preguntarHora(tools);
+  if (d.hora == null) return preguntarHora(tools, pre);
   if (!d.ok) {
-    // comprobar que la hora pedida está libre
-    var libres = freeSlots(d.day, d.serv.m);
-    tools.push(toolVer(d.day, d.serv.m));
-    if (libres.indexOf(d.hora) === -1) {
-      var cerca = nearest(libres, d.hora), pedida = hhmm(d.hora); d.hora = null;
-      if (!cerca.length) return diaLleno(tools);
-      offer = { day: d.day, slots: cerca, m: d.serv.m }; st.paso = 'hora';
-      return { txt: 'El ' + diaTxt(d.day) + ' a las ' + pedida + ' no hay disponibilidad (' + (dentroHorario(d.day, toMin(pedida)) ? 'ya está reservado' : 'fuera del horario de apertura') + '). Las horas más cercanas son: ' + lista(cerca) + '.', chips: horaChips(cerca) };
+    tools.push(toolVer(d.day, m));
+    if (!libre(d.day, d.hora, m)) {
+      var pedida = d.hora, cerca = nearest(freeSlots(d.day, m), pedida); d.hora = null;
+      if (!cerca.length) return diaLleno(tools, pre);
+      offer = { day: d.day, slots: cerca, m: m }; st.paso = 'hora';
+      return { txt: pre + 'El ' + diaTxt(d.day) + ' a las ' + hhmm(pedida) + ' no es posible: ' + motivo(d.day, pedida, m) + '. Las horas más cercanas son: ' + lista(cerca) + '.', chips: horaChips(cerca) };
     }
-    d.ok = true; offer = { day: d.day, slots: [d.hora], m: d.serv.m };
+    d.ok = true; offer = { day: d.day, slots: [d.hora], m: m };
   }
-  if (!st.nombre) { st.paso = 'nombre'; return { txt: 'El ' + diaTxt(d.day) + ' a las <b>' + hhmm(d.hora) + '</b> está disponible. ¿A nombre de quién hago la reserva?', chips: [] }; }
-  if (!st.tel) { st.paso = 'tel'; return { txt: 'Gracias, ' + esc(st.nombre) + '. ¿Me indicas un número de móvil? Lo usaremos para enviarte un recordatorio el día anterior.', chips: [] }; }
+  if (!st.nombre) { st.paso = 'nombre'; return { txt: pre + 'El ' + diaTxt(d.day) + ' a las <b>' + hhmm(d.hora) + '</b> está disponible. ¿A nombre de quién hago la reserva?', chips: [] }; }
+  if (!st.tel) { st.paso = 'tel'; return { txt: pre + 'Gracias, ' + esc(st.nombre) + '. ¿Me indicas un número de móvil? Lo usaremos para enviarte un recordatorio el día anterior.', chips: [] }; }
   st.paso = 'confirmar';
-  return { txt: 'Resumen de la cita:\n<b>' + d.serv.n + '</b> · ' + cap(diaLargo(d.day)) + ' a las <b>' + hhmm(d.hora) + '</b>\n' + eur(d.serv.p) + ' · a nombre de ' + esc(st.nombre) + ' (' + st.tel.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3') + ')\n¿Confirmo la reserva?', chips: [{ l: 'Sí, confírmala', v: 'si' }, { l: 'Cambiar la hora', v: 'no' }] };
+  return { txt: pre + 'Resumen de la cita:\n<b>' + d.serv.n + '</b> · ' + cap(diaLargo(d.day)) + ' a las <b>' + hhmm(d.hora) + '</b>\n' + eur(d.serv.p) + ' · a nombre de ' + esc(st.nombre) + ' (' + telTxt(st.tel) + ')\n¿Confirmo la reserva?', chips: [{ l: 'Sí, confírmala', v: 'si' }, { l: 'Cambiar la hora', v: 'no' }, { l: 'Otro día', v: 'otro dia' }] };
 }
-function dentroHorario(day, m) { return (HORARIO[day.getDay()] || []).some(function (t) { return m >= t[0] && m < t[1]; }); }
-function lista(sl) { var h = sl.map(hhmm); return h.length > 1 ? h.slice(0, -1).join(', ') + ' o ' + h[h.length - 1] : h[0]; }
+function lista(sl) { return unir(sl.map(hhmm), ' o '); }
 function horaChips(sl) { return sl.map(function (s) { return { l: hhmm(s), v: hhmm(s) }; }).concat([{ l: 'Otro día', v: 'otro dia' }]); }
-function diaLleno(tools) {
-  var d = st.d, alt = nextOpen(addDays(d.day, 1), d.serv.m), dia = diaTxt(d.day);
-  if (!alt) { d.day = null; st.paso = null; return { txt: 'El ' + dia + ' no queda disponibilidad y tampoco en las próximas semanas. Te recomendamos llamar al local.', chips: [] }; }
-  d.day = alt; tools.push(toolVer(alt, d.serv.m));
-  var sl = pickSpread(freeSlots(alt, d.serv.m), d.pod); offer = { day: alt, slots: sl, m: d.serv.m }; st.paso = 'hora';
-  return { txt: 'Para ' + (d.serv.id === 'combo' ? 'corte + barba' : 'un ' + d.serv.n.toLowerCase()) + ' (' + d.serv.m + ' min) el ' + dia + ' no queda disponibilidad. El <b>' + diaTxt(alt) + '</b> hay huecos a las ' + lista(sl) + '.', chips: horaChips(sl) };
+function franjaTxt(pod) { return pod === 'tarde' ? ' por la tarde' : pod === 'manana' ? ' por la mañana' : ''; }
+function diaLleno(tools, pre) {
+  var d = st.d, m = d.serv.m, dia = diaTxt(d.day), alt = nextOpen(addDays(d.day, 1), m, d.pod);
+  if (!alt) return sinHuecos(pre);
+  d.day = alt; tools.push(toolVer(alt, m));
+  var libres = freeSlots(alt, m), hay = libres.some(function (s) { return enFranja(s, d.pod); }), sl = pickSpread(libres, hay ? d.pod : null);
+  offer = { day: alt, slots: sl, m: m }; st.paso = 'hora';
+  return { txt: (pre || '') + 'El ' + dia + ' no queda disponibilidad para ' + d.serv.n.toLowerCase() + ' (' + m + ' min). El <b>' + diaTxt(alt) + '</b>' + (hay ? franjaTxt(d.pod) : '') + ' hay hueco a las ' + lista(sl) + (sl.length > 1 ? '. ¿Cuál prefieres?' : '. ¿Te viene bien?'), chips: horaChips(sl) };
 }
-function preguntarHora(tools, intro) {
-  var d = st.d, libres = freeSlots(d.day, d.serv.m);
-  tools.push(toolVer(d.day, d.serv.m));
-  if (!libres.length) return diaLleno(tools);
-  var sl = pickSpread(libres, d.pod); offer = { day: d.day, slots: sl, m: d.serv.m }; st.paso = 'hora';
-  var franja = d.pod === 'tarde' ? ' por la tarde' : d.pod === 'manana' ? ' por la mañana' : '';
-  return { txt: (intro ? intro + '\n' : '') + 'El <b>' + diaTxt(d.day) + '</b>' + franja + ' hay disponibilidad a las ' + lista(sl) + (sl.length > 1 ? '. ¿Cuál prefieres?' : '. ¿Te viene bien?'), chips: horaChips(sl) };
+function preguntarHora(tools, pre) {
+  var d = st.d, m = d.serv.m, libres = freeSlots(d.day, m);
+  tools.push(toolVer(d.day, m));
+  if (!libres.length) return diaLleno(tools, pre);
+  var hay = libres.some(function (s) { return enFranja(s, d.pod); }), sl = pickSpread(libres, hay ? d.pod : null);
+  offer = { day: d.day, slots: sl, m: m }; st.paso = 'hora';
+  var pregunta = sl.length > 1 ? ' ¿Cuál prefieres?' : ' ¿Te viene bien?', txt;
+  if (d.pod && !hay) {
+    var abre = (HORARIO[d.day.getDay()] || []).some(function (t) { return d.pod === 'tarde' ? t[1] > 900 : t[0] < 840; });
+    txt = 'El <b>' + diaTxt(d.day) + '</b>' + franjaTxt(d.pod) + (abre ? ' no queda disponibilidad' : ' el local está cerrado') + '. Ese día hay hueco a las ' + lista(sl) + '.' + pregunta;
+  } else txt = 'El <b>' + diaTxt(d.day) + '</b>' + franjaTxt(d.pod) + ' hay disponibilidad a las ' + lista(sl) + '.' + pregunta;
+  return { txt: (pre || '') + txt, chips: horaChips(sl) };
 }
 function reservar(tools) {
-  var d = st.d, ev = { id: 'r' + Date.now().toString(36), day: d.day, s: d.hora, e: d.hora + d.serv.m, title: d.serv.n + ' — ' + st.nombre, kind: 'ia', src: 'IA' };
+  var d = st.d, m = d.serv.m;
+  tools.push(toolVer(d.day, m));
   // por si mientras tanto alguien ha cogido la hora
-  var libre = freeSlots(d.day, d.serv.m).indexOf(d.hora) !== -1;
-  tools.push(toolVer(d.day, d.serv.m));
-  if (!libre) { d.hora = null; d.ok = false; st.paso = null; return preguntarHora(tools, 'Esa hora acaba de reservarse.'); }
-  tools.push({ id: 'crear', k: 'Google Calendar · Crear cita', v: '«' + ev.title + '» ' + diaTxt(d.day) + ' ' + hhmm(ev.s) + '–' + hhmm(ev.e), ms: 650, after: function () { events.push(ev); var a = stored(); a.push({ id: ev.id, day: iso(ev.day), s: ev.s, e: ev.e, title: ev.title }); store(a); flashId = ev.id; offer = null; showDay(ev.day); } });
-  ultima = ev; var resumen = d.serv.n + ' el ' + diaLargo(d.day) + ' a las ' + hhmm(d.hora);
+  if (!libre(d.day, d.hora, m)) { d.hora = null; d.ok = false; return preguntarHora(tools, 'Esa hora acaba de ocuparse.\n'); }
+  var ev = { id: 'r' + Date.now().toString(36), day: d.day, s: d.hora, e: d.hora + m, title: d.serv.n + ' — ' + st.nombre, sv: d.serv.id, tel: st.tel, kind: 'ia', src: 'IA' };
+  tools.push({ id: 'crear', k: 'Google Calendar · Crear cita', v: '«' + ev.title + '» ' + diaTxt(d.day) + ' ' + hhmm(ev.s) + '–' + hhmm(ev.e), ms: 650, after: function () {
+    events.push(ev); var a = stored(); a.push({ id: ev.id, day: iso(ev.day), s: ev.s, e: ev.e, title: ev.title, sv: ev.sv }); store(a);
+    flashId = ev.id; offer = null; showDay(ev.day); recordatorio(ev);
+  } });
+  ultima = ev; var resumen = d.serv.n.toLowerCase() + ' el ' + diaLargo(d.day) + ' a las ' + hhmm(d.hora);
   st.d = {}; st.paso = null;
-  return { txt: 'Cita confirmada, ' + esc(st.nombre) + ': <b>' + resumen + '</b>.\nTe enviaremos un recordatorio el día anterior. Si necesitas cancelarla, puedes hacerlo desde este chat.\n<span class="ok">● Guardada en Google Calendar</span>', chips: [{ l: 'Cancelar la cita', v: 'cancelar mi cita' }, { l: 'Gracias' }] };
+  return { txt: 'Cita confirmada, ' + esc(st.nombre) + ': <b>' + resumen + '</b>.\nTe enviaremos un recordatorio el día anterior. Si necesitas cambiarla o cancelarla, puedes hacerlo desde este chat.\n<span class="ok">● Guardada en Google Calendar</span>', chips: [{ l: 'Cambiar la cita', v: 'cambiar mi cita' }, { l: 'Cancelar la cita', v: 'cancelar mi cita' }, { l: 'Gracias' }] };
 }
-function pedirCancelar() {
-  if (!ultima || events.indexOf(ultima) === -1) { var ias = events.filter(function (e) { return e.kind === 'ia' && e.day >= TODAY; }); ultima = ias[ias.length - 1] || null; }
-  if (!ultima || events.indexOf(ultima) === -1) { st.paso = null; return { txt: 'No consta ninguna cita reservada desde este chat. Si la reservaste por teléfono o por Booksy, puedes cancelarla por ese medio o llamando al local.', chips: START_CHIPS }; }
-  st.paso = 'cancelar';
-  return { txt: '¿Quieres cancelar tu cita de <b>' + ultima.title.split(' — ')[0].toLowerCase() + '</b> del ' + diaLargo(ultima.day) + ' a las ' + hhmm(ultima.s) + '?', chips: [{ l: 'Sí, cancélala', v: 'si' }, { l: 'No, la mantengo', v: 'no' }] };
+function citaIA() {
+  if (ultima && events.indexOf(ultima) !== -1) return ultima;
+  var ias = events.filter(function (e) { return e.kind === 'ia' && e.day >= TODAY; }).sort(function (a, b) { return a.day - b.day || a.s - b.s; });
+  return ias[ias.length - 1] || null;
+}
+function pedirCancelar(cambio) {
+  ultima = citaIA();
+  if (!ultima) { st.paso = null; return { txt: 'No consta ninguna cita reservada desde este chat. Si la reservaste por teléfono o por Booksy, puedes ' + (cambio ? 'cambiarla' : 'cancelarla') + ' por ese medio o llamando al local.', chips: START_CHIPS }; }
+  st.paso = 'cancelar'; st.reprog = !!cambio;
+  var desc = 'tu cita de <b>' + esc(ultima.title.split(' — ')[0].toLowerCase()) + '</b> del ' + diaLargo(ultima.day) + ' a las ' + hhmm(ultima.s);
+  if (cambio) return { txt: 'Para cambiar ' + desc + ', la cancelo y buscamos otro día. ¿De acuerdo?', chips: [{ l: 'Sí, cámbiala', v: 'si' }, { l: 'No, la mantengo', v: 'no' }] };
+  return { txt: '¿Quieres cancelar ' + desc + '?', chips: [{ l: 'Sí, cancélala', v: 'si' }, { l: 'No, la mantengo', v: 'no' }] };
 }
 function cancelar(tools) {
-  var ev = ultima; st.paso = null;
+  var ev = ultima, reprog = st.reprog; st.paso = null; st.reprog = false; ultima = null;
   tools.push({ id: 'ver', k: 'Google Calendar · Ver agenda', v: 'busca «' + ev.title + '»', ms: 480, after: function () { showDay(ev.day); } });
-  tools.push({ id: 'cancel', k: 'Google Calendar · Cancelar cita', v: 'borra el evento ' + ev.id + ' · ' + diaTxt(ev.day) + ' ' + hhmm(ev.s), ms: 520, after: function () { events.splice(events.indexOf(ev), 1); store(stored().filter(function (r) { return r.id !== ev.id; })); renderCal(); } });
-  ultima = null;
+  tools.push({ id: 'cancel', k: 'Google Calendar · Cancelar cita', v: 'borra el evento ' + ev.id + ' · ' + diaTxt(ev.day) + ' ' + hhmm(ev.s), ms: 520, after: function () {
+    var i = events.indexOf(ev); if (i !== -1) events.splice(i, 1);
+    store(stored().filter(function (r) { return r.id !== ev.id; })); recordatorio(null); renderCal();
+  } });
+  // la hora que deja libre ya cuenta para lo que se ofrezca a continuación
+  var i = events.indexOf(ev); if (i !== -1) events.splice(i, 1);
+  if (reprog) {
+    var sv = SV[ev.sv] || SERV.filter(function (s) { return ev.title.indexOf(s.n + ' — ') === 0; })[0];
+    if (sv) { st.d = { serv: sv }; var r = siguiente(tools); r.txt = 'Cita cancelada.\n' + r.txt; return r; }
+  }
   return { txt: 'La cita ha sido cancelada. ¿Quieres reservar otro día?', chips: [{ l: 'Sí, otro día', v: 'quiero cita' }, { l: 'No, gracias', v: 'no' }] };
 }
+// Si otra pestaña (la web del cliente o la demo por dentro) reserva o cancela, esta se entera.
+window.addEventListener('storage', function (e) {
+  if (e.key !== KEY) return;
+  var id = ultima && ultima.id; seed();
+  ultima = id ? (events.filter(function (x) { return x.id === id; })[0] || null) : null;
+  renderCal();
+});
 
 
 
@@ -730,6 +904,10 @@ function closeChat() { $('panel').hidden = true; $('fab').hidden = false; $('fab
 $('fab').onclick = function () { openChat(); };
 $('close').onclick = closeChat;
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('panel').hidden) closeChat(); });
+$('privLink').onclick = function () { closeChat(); $('privacidad').open = true; };
+var ctas = document.querySelector('.hero .ctas');
+function heroVisible() { var r = ctas.getBoundingClientRect(); document.body.classList.toggle('hero-visible', r.bottom > 0 && r.top < window.innerHeight); }
+window.addEventListener('scroll', heroVisible, { passive: true }); window.addEventListener('resize', heroVisible); heroVisible();
 [].forEach.call(document.querySelectorAll('[data-open]'), function (b) { b.onclick = function () { openChat($('log').children.length > 1 ? null : 'quiero cita'); }; });
 
 // carta de servicios
@@ -744,7 +922,7 @@ var DESC = {
 };
 $('menu').innerHTML = SERV.map(function (s) {
   return '<article class="card' + (s.id === 'combo' ? ' star' : '') + '">' + (s.id === 'combo' ? '<span class="badge">El más pedido</span>' : '') +
-    '<div class="top"><h3>' + s.n + '</h3><span class="price">' + eur(s.p) + '</span></div><p>' + DESC[s.id] + '</p>' +
+    '<div class="top"><h3>' + s.n + '</h3><span class="price">' + eur(s.p) + '</span></div><p>' + (s.d || DESC[s.id] || '') + '</p>' +
     '<div class="row"><span class="min">' + s.m + ' min</span><button type="button" data-serv="' + s.id + '">Reservar</button></div></article>';
 }).join('');
 [].forEach.call(document.querySelectorAll('[data-serv]'), function (b) { b.onclick = function () { if (!busy) openChat('quiero ' + SV[b.dataset.serv].n.toLowerCase()); }; });
